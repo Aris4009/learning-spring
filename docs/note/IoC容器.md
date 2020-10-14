@@ -38,6 +38,10 @@ spring配置至少包含一个或多个bean的定义，才能被容器管理。
 
 </beans>
 ```
+`ClassPathXmlApplicationContext`的UML图
+![](https://raw.githubusercontent.com/Aris4009/attachment/main/ClassPathXmlApplicationContext.png)
+
+
 **基于Java代码的元数据配置表示为(`@Bean`方法注解需要结合`@Configuration`类注解一起使用)：**
 ```
 package com.example.demo.ioc.container;
