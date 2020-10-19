@@ -209,3 +209,55 @@ public class InitMultipleImportBeans {
 
 ### 1.2.3使用容器
 `ApplicationContext`是一个高级工厂接口，该工厂能够维护不同Bean以及他们依赖项的注册表。通过调用方法`T getBean(String name,Class<T> requiredType)`，可以获取bean的实例对象。
+
+## 1.3 Bean概述
+一个spring IoC容器管理着一个或更多的beans。这些Bean是通过元数据配置文件，在容器中创建的。
+在容器内部，这些Bean定义被表示为`BeanDefinition`对象，包含如下元数据：
+* 包限定的类名：一个类的具体实现。
+* Bean行为元素配置，用于声明Bean在容器中的行为（作用于、生命周期回调等）。
+* 其他Bean的引用，这些Bean的引用也被称为协作者或者依赖项。
+* 在新创建的对象中设置其他配置-例如，线程池的大小、链接数等
+
+元数据被翻译成一系列的属性来组成每个bean定义。下面的列表描述了这些属性
+
+**表格1 Bean定义**
+
+| Property                 | Explained in...          |
+|--------------------------|--------------------------|
+| Class                    | Instantiating Beans      |
+| Name                     | Naming Beans             |
+| Scope                    | Bean Scopes              |
+| Constructor arguments    | Dependency Injection     |
+| Properties               | Dependency Injection     |
+| Autowiring mode          | Autowiring Collaborators |
+| Lazy initialization mode | Lazy-initialized Beans   |
+| Initialization method    | Initialization Callbacks |
+| Destruction method       | Destruction Callbacks    |
+
+除此之外，bean definitions 包含怎样去创建一个特殊的bean信息，`ApplicationContext`的实现允许用户注册容器外的已存在的对象。通过访问实现了ApplicationContext's BeanFactory的`DefaultListableBeanFacotory`的`getBeanFacotory()`方法来完成。`DefaultListableBeanFacotory`支持通过`registerSingleton(..)`和`registerBeanDefinition(..)`注册bean。d按时，典型的应用程序只能通过常规的的元数据定义来定义bean。
+
+*Bean元数据和手动提供的单例实例需要尽早注册，以便容器在自动装配和其他自省步骤中正确地装配它们*
+
+### 1.3.1 Bean的命名
+每一个Bean有一个或多个标识符。这些标识符在容器中必须是惟一的。一个bean通常只有一个标识符，然而，如果需要更多的标识符，考虑使用别名。
+
+在基于XML配置的元数据中，可以使用`id`属性，`name`属性或者可以同时使用二者。可以精确地定义一个`id`属性。按照惯例，这些名称都使用字母和数字去定义，例如('myBean','someService'等等)，但是，也可以包含一些特殊字符。如果想给bean增加一些别名，就使用`name`属性，多个别名使用逗号(,)，分号(;)或者空格来分割。在Spring 3.1之前的版本中，`id`属性被定义为`xsd:ID`类型，限制了可能使用到的字符类型。在3.1之后，属性的类型被定义为`xsd:string`类型。注意，bean 的`id`唯一性仍然后容器强制执行，尽管不在由XML解析器执行。
+
+`id`,`name`属性对于bean来说不需要显示指定。如果明确的不需要`name`或`id`，容器通常会生成一个唯一的名字给bean。然而，如果想通过名字来引用bean，通过使用`ref`元素或者Service Locator查找，就必须提供一个名字。不提供名字的动机通常是指`inner bean`或者`autowiring collaborators`。
+
+*Bean 命名约定为驼峰命名*
+
+**在Bean定义之外定义bean的别名**
+在bean本身的定义中，可以通过制定`id`属性和任意数量的`name`属性来为bean提供多个名称。这些名称等同于bean的别名并且在某些情况下很有用。例如，通过使用特定的bean名称，让应用程序中的每个组件都引用一个公共的依赖项。
+
+在实际定义bean的地方定义所有别名并不总是足够的，然而，有时候需要在别处定义bean的别名。这通常发生在配置文件被分割为多个子系统的大型系统中，每个子系统拥有一系列自己的对象定义。在基于XML的元数据配置中，可以使用`<alias>`元素来完成别名的设置。
+`<alias name="formName",alias="toName">`
+在这个例子中，一个bean在同一个容器中被命名为fromName，然后toName也是指这个bean。
+
+例如，在包含子系统的元数据配置中，A系统的数据源名称为`subsystemA-dataSource`,B系统的数据源配置为`subsystemB-dataSource`。当组成这两个子系统时，住应用程序的数据源名为`myApp-dataSource`。为了将三个引用指向同一个数据源，需要在别名定义的时候增加如下的信息:
+```
+<alias name="myApp-dataSource" alias="subsystemA-dataSource"/>
+<alias name="myApp-dataSource" alias="subsystemB-dataSource"/>
+```
+
+现在，主应用程序保证数据源命名的唯一性并且不会发生冲突，并且他们指向同一个bean。
