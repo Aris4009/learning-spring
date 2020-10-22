@@ -406,3 +406,30 @@ public class ThingOne {
 ```
 
 当另一个bean被引用时，他的类型是已知的，并且能够匹配（像前面的例子一样）。当使用一个简单类型时，例如<value>true</value>，spring不能决定value的类型，并且在没有帮助的情况下无法按类型进行匹配，考虑下面的类：
+
+```
+package examples;
+
+public class ExampleBean {
+
+    // Number of years to calculate the Ultimate Answer
+    private int years;
+
+    // The Answer to Life, the Universe, and Everything
+    private String ultimateAnswer;
+
+    public ExampleBean(int years, String ultimateAnswer) {
+        this.years = years;
+        this.ultimateAnswer = ultimateAnswer;
+    }
+}
+```
+
+**构造参数配型匹配**
+在前面的例子中，容器通过使用`type`属性来将简单类型匹配到构造参数中。例如：
+```
+<bean id="exampleBean" class="examples.ExampleBean">
+    <constructor-arg type="int" value="7500000"/>
+    <constructor-arg type="java.lang.String" value="42"/>
+</bean>
+```

@@ -55,4 +55,10 @@
         <constructor-arg ref="beanTwo"></constructor-arg>
         <constructor-arg ref="beanThree"></constructor-arg>
     </bean>
+
+    <!-- 通过构造函数初始化bean，并且制定构造函数的类型 -->
+    <bean id="exampleBean" class="com.example.demo.dependency.injection.constructor.based.ExampleBean">
+        <constructor-arg type="int" value="7500000"/>
+        <constructor-arg type="java.lang.String" value="42"/>
+    </bean>
 </beans>
