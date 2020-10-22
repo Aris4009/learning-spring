@@ -62,9 +62,22 @@
         <constructor-arg type="java.lang.String" value="42"/>
     </bean>
 
-    <!-- 通过构造函数初始化bean，并且通过制定参数顺序 -->
+    <!-- 通过构造函数初始化bean，并且通过指定参数顺序 -->
     <bean id="exampleBean1" class="com.example.demo.dependency.injection.constructor.based.ExampleBean">
         <constructor-arg index="0" value="111"></constructor-arg>
         <constructor-arg index="1" value="222"></constructor-arg>
+    </bean>
+
+    <!-- 通过构造函数初始化bean，并且通过指定参数名称 -->
+    <bean id="exampleBean2" class="com.example.demo.dependency.injection.constructor.based.ExampleBean">
+        <constructor-arg name="years" value="333"></constructor-arg>
+        <constructor-arg name="ultimateAnswer" value="444"></constructor-arg>
+    </bean>
+
+    <!-- 通过构造函数初始化bean，并且通过指定@ConstructorProperties来指定参数名称 -->
+    <bean id="exampleBeanNoDebugFlag"
+          class="com.example.demo.dependency.injection.constructor.based.ExampleBeanNoDebugFlag">
+        <constructor-arg name="y" value="555"></constructor-arg>
+        <constructor-arg name="u" value="666"></constructor-arg>
     </bean>
 </beans>

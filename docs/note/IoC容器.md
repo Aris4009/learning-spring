@@ -434,11 +434,39 @@ public class ExampleBean {
 </bean>
 ```
 
-**通过制定构造参数顺序**
+**通过指定构造参数顺序**
 可以使用`index`属性来明确的指定构造参数的顺序，例如：
 ```
 <bean id="exampleBean" class="examples.ExampleBean">
     <constructor-arg index="0" value="7500000"/>
     <constructor-arg index="1" value="42"/>
 </bean>
+```
+
+除了解决多个简单值的歧义性之外，指定索引还可以解决具有两个相同类型的参数的歧义性。
+
+*注意：索引是从0开始的*
+
+**通过指定参数名称**
+可以通过指定构造函数的参数名称来消除歧义，如下面的例子:
+```
+<bean id="exampleBean" class="examples.ExampleBean">
+    <constructor-arg name="years" value="7500000"/>
+    <constructor-arg name="ultimateAnswer" value="42"/>
+</bean>
+```
+请记住，代码必须在开启debug flag的情况下进行编译，以便spring可以从构造函数中查找参数名称。如果不想启用debug flag，可以使用`@ConstructorProperties`注解来明确参数的名字，如下面的例子：
+```
+package examples;
+
+public class ExampleBean {
+
+    // Fields omitted
+
+    @ConstructorProperties({"years", "ultimateAnswer"})
+    public ExampleBean(int years, String ultimateAnswer) {
+        this.years = years;
+        this.ultimateAnswer = ultimateAnswer;
+    }
+}
 ```
