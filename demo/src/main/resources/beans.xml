@@ -3,7 +3,48 @@
        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
        xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd">
     <bean id="hello" class="com.example.demo.hello.Hello">
-        <constructor-arg name="name"  value="xmlName"/>
+        <constructor-arg name="name" value="xmlName"/>
         <constructor-arg name="age" value="2"/>
     </bean>
+    <!-- 静态内部类初始化，多个别名 -->
+    <bean id="initStaticNestedBean" class="com.example.demo.instantiation.beans.InitStaticNestedBean$NestedClassBean"
+          name="name1,name2">
+        <constructor-arg name="name" value="aaa"/>
+        <constructor-arg name="age" value="33"/>
+    </bean>
+    <!-- 别名 -->
+    <alias name="hello" alias="hello2"></alias>
+
+    <!-- 多个复杂参数 -->
+    <bean id="initComplexBean" class="com.example.demo.instantiation.beans.InitComplexBean">
+        <constructor-arg name="hello" ref="hello2"></constructor-arg>
+        <constructor-arg name="list">
+            <list>
+                <value>a</value>
+                <value>b</value>
+            </list>
+        </constructor-arg>
+        <constructor-arg name="map">
+            <map>
+                <entry key="c" value="d"></entry>
+                <entry key="e" value="f"></entry>
+            </map>
+        </constructor-arg>
+        <constructor-arg name="set">
+            <set>
+                <value>1</value>
+                <value>2</value>
+                <value>3</value>
+            </set>
+        </constructor-arg>
+    </bean>
+
+    <!-- 通过工厂方法创建bean -->
+    <bean id="initHello" class="com.example.demo.instantiation.beans.InitBeanStaticFactory"
+          factory-method="create"></bean>
+
+    <!-- 通过工厂实例初始化bean -->
+    <bean id="initBeanInstanceFactoryMethod"
+          class="com.example.demo.instantiation.beans.InitBeanInstanceFactoryMethod"></bean>
+    <bean id="initHello2" factory-bean="initBeanInstanceFactoryMethod" factory-method="create"></bean>
 </beans>
