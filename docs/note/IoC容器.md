@@ -347,3 +347,62 @@ public class DefaultServiceLocator {
 ***确定bean的运行时类型***
 确定特定bean的运行时类型并非易事。在bean元数据定义中，一个特定的类只是初始类的引用，与已经声明的工厂方法结合使用，或者是可能导致Bean的不同运行时类型的FactoryBean类，或根本不设置实例工厂方法（而通过制定`factory-bean`名称来代替）。另外，AOP代理可能使用基于接口代理来包装bean实例，而目标bean的实际类型的暴露程度有限。
 找出bean实际的运行时类型的推荐做法是，通过调用`BeanFactory.getType`来获得。这考虑了上述所说的所有情况，并且对于相同的bean名称来说，返回了与调用`BeanFactory.getBean`相同的对象类型。
+
+##1.4 依赖##
+典型的企业级应用程序不只包含一个单独的对象（或者在spring属于中，成为bean）。即使最简单的应用程序，也有一些对象需要协同工作，以便为最终用户呈现一直的应用程序。下一部分将说明如何从定义多个独立的bean到实现对象写作，以实现完整的应用程序。
+
+###1.4.1 依赖注入###
+依赖注入是通过构造函数参数、工厂方法参数或者在构造或创建对象实例后，在对象实例上设置属性来定义其依赖关系。当容器创建bean时，会注入这些依赖。从本质上讲，这个过程是通过类的构造函数、Service Locator模式来控制bean自身依赖关系的逆过程，因此也成为IoC（控制反转）。
+
+依赖注入使代码更简洁，更有效的解耦。对象本身不需要查找它自身的依赖，并且不需要定位这些依赖。结果是，这些类更容易测试，特别是当依赖项是在接口或者抽象基类上，允许在单元测试中模拟测试数据。
+
+依赖注入主要由两种形式：构造函数的依赖注入和基于Setter方法的依赖注入
+
+**基于构造函数的依赖注入**
+基于构造函数的依赖注入，是容器调用构造函数来完成的。调用静态工厂方法来构造bean与基于构造函数的依赖注入有相同的效果。这里讨论的构造函数的参数与静态工厂方法的参数相似。下面的例子展示了一个类只能通过构造函数来注入以依赖。
+```
+public class SimpleMovieLister {
+
+    // the SimpleMovieLister has a dependency on a MovieFinder
+    private MovieFinder movieFinder;
+
+    // a constructor so that the Spring container can inject a MovieFinder
+    public SimpleMovieLister(MovieFinder movieFinder) {
+        this.movieFinder = movieFinder;
+    }
+
+    // business logic that actually uses the injected MovieFinder is omitted...
+}
+```
+注意，在这个类里没有其他特别的东西。他就是一个普通java对象（POJO）并且没有依赖任何的接口、基类或者注解。
+
+**构造参数解析**
+构造参数解析匹配通过使用参数的类型进行。如果bean定义的构造函数参数中不存在潜在的歧义，那么他的顺序就是bean被初始化时，构造器的顺序。考虑下面的类：
+
+```
+package x.y;
+
+public class ThingOne {
+
+    public ThingOne(ThingTwo thingTwo, ThingThree thingThree) {
+        // ...
+    }
+}
+```
+
+假设`ThingTwo`和`ThingThree` 没有通过继承来关联，没有潜在的歧义。因此，如下的配置将会很好的工作，在<constructor-arg/>中不需要指定构造函数的indexes或者明确的类型。
+例如：
+```
+<beans>
+    <bean id="beanOne" class="x.y.ThingOne">
+        <constructor-arg ref="beanTwo"/>
+        <constructor-arg ref="beanThree"/>
+    </bean>
+
+    <bean id="beanTwo" class="x.y.ThingTwo"/>
+
+    <bean id="beanThree" class="x.y.ThingThree"/>
+</beans>
+```
+
+当另一个bean被引用时，他的类型是已知的，并且能够匹配（像前面的例子一样）。当使用一个简单类型时，例如<value>true</value>，spring不能决定value的类型，并且在没有帮助的情况下无法按类型进行匹配，考虑下面的类：

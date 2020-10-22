@@ -47,4 +47,12 @@
     <bean id="initBeanInstanceFactoryMethod"
           class="com.example.demo.instantiation.beans.InitBeanInstanceFactoryMethod"></bean>
     <bean id="initHello2" factory-bean="initBeanInstanceFactoryMethod" factory-method="create"></bean>
+
+    <!-- 通过构造函数初始化bean，并且不指定构造参数的顺序和类型 -->
+    <bean id="beanTwo" class="com.example.demo.dependency.injection.constructor.based.BeanTwo"></bean>
+    <bean id="beanThree" class="com.example.demo.dependency.injection.constructor.based.BeanThree"></bean>
+    <bean id="beanOne" class="com.example.demo.dependency.injection.constructor.based.BeanOne">
+        <constructor-arg ref="beanTwo"></constructor-arg>
+        <constructor-arg ref="beanThree"></constructor-arg>
+    </bean>
 </beans>
