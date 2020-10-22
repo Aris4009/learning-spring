@@ -433,3 +433,12 @@ public class ExampleBean {
     <constructor-arg type="java.lang.String" value="42"/>
 </bean>
 ```
+
+**通过制定构造参数顺序**
+可以使用`index`属性来明确的指定构造参数的顺序，例如：
+```
+<bean id="exampleBean" class="examples.ExampleBean">
+    <constructor-arg index="0" value="7500000"/>
+    <constructor-arg index="1" value="42"/>
+</bean>
+```

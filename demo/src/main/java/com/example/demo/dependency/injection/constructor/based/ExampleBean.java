@@ -34,6 +34,11 @@ public class ExampleBean {
         ClassPathXmlApplicationContext context = new ClassPathXmlApplicationContext(path);
         ExampleBean exampleBean = context.getBean("exampleBean", ExampleBean.class);
         log.info("{}", exampleBean);
+
+        ExampleBean exampleBean1 = context.getBean("exampleBean1", ExampleBean.class);
+        log.info("{}", exampleBean1);
+
+        log.info("bean1 hashcode:{},bean2 hashcode:{}", exampleBean.hashCode(), exampleBean1.hashCode());
         context.close();
     }
 }

@@ -56,9 +56,15 @@
         <constructor-arg ref="beanThree"></constructor-arg>
     </bean>
 
-    <!-- 通过构造函数初始化bean，并且制定构造函数的类型 -->
+    <!-- 通过构造函数初始化bean，并且指定构造函数的类型 -->
     <bean id="exampleBean" class="com.example.demo.dependency.injection.constructor.based.ExampleBean">
         <constructor-arg type="int" value="7500000"/>
         <constructor-arg type="java.lang.String" value="42"/>
+    </bean>
+
+    <!-- 通过构造函数初始化bean，并且通过制定参数顺序 -->
+    <bean id="exampleBean1" class="com.example.demo.dependency.injection.constructor.based.ExampleBean">
+        <constructor-arg index="0" value="111"></constructor-arg>
+        <constructor-arg index="1" value="222"></constructor-arg>
     </bean>
 </beans>
