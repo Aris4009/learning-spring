@@ -470,3 +470,63 @@ public class ExampleBean {
     }
 }
 ```
+
+**基于setter方法的依赖注入**
+基于setter方法的依赖注入是在容器调用bean的无参构造函数或一个无参静态工厂方法初始化bean后，调用setter方法来实现的。
+
+下面的立即展示了使用纯setter注入的例子。这个类是一个常规的Java类。他没有依赖特别的接口、基类或者注解。
+```
+public class SimpleMovieLister {
+
+    // the SimpleMovieLister has a dependency on the MovieFinder
+    private MovieFinder movieFinder;
+
+    // a setter method so that the Spring container can inject a MovieFinder
+    public void setMovieFinder(MovieFinder movieFinder) {
+        this.movieFinder = movieFinder;
+    }
+
+    // business logic that actually uses the injected MovieFinder is omitted...
+}
+```
+
+`ApplicationContext`支持基于构造函数或者基于setter方法的依赖注入管理。在通过构造函数注入了某些依赖之后，它还支持基于setter的依赖注入。以`BeanDefinition`的形式配置依赖项，将其与`PropertyEditor`实例结合使用，将属性从一种格式转换为另一种格式。然而，大部分的spring用户不需要直接使用这些类而是使用XML的`bean`定义，组件注解或者基于在有`@Configuration`的Java类上，对方法使用`@Bean`注解。然后这些源在内部会转换为`BeanDefinition`实例，并用于加载整个Spring IoC容器实例。
+
+-------
+***基于构造函数还是基于setter？***
+由于可以混合使用基于构造函数和setter的依赖注入，对于强依赖，使用构造函数，对于可选依赖，使用setter方法是一个很好的原则。注意，在setter方法上使用`@Required`注解会使依赖变成必须的，但是，最好使用带有参数校验的构造函数进行注入。
+
+Spring 拥护构造函数注入，它可以让应用组件实现为不可变对象并且确保依赖不为`null`。此外，构造函数注入的组件始终以完全初始化的状态返回给客户端。附带说明一下，大量的构造函数参数是坏的代码，这暗示了这个类可能承担了太多的责任，应该对其重构以便更好地解决关注点分离的问题。
+
+Setter注入只应该使用在类中分配合理的默认值的可选依赖项。除此之外，在使用这些依赖的代码中，必须进行非空检查。使用setter注入的一个好处是setter方法可以使该类的对象在以后重新分配或者重新注入。因此，通过`JMX MBeans`进行管理是使用setter注入的例子。
+
+对特定的类也可以使用依赖注入。有时候，在决定使用第三方类，但是并没有源码的时候，到底使用哪种风格取决于用户。例如，如果第三方的类没有暴露任何的setter方法，那么构造函数注入的方式是唯一的选项。
+
+
+-------
+
+**依赖解析过程**
+容器执行bean依赖的解析过程如下：
+* 使用所有描述bean的元数据配置创建并初始化`ApplicationContext`。配置元数据可以通过XML、Java代码或者注解方式来定义。
+* 对于每一个bean，它的依赖以属性、构造函数参数或者静态工厂方法参数来表示。当bean被实际创建时，这些依赖会提供给bean。
+* 每一个属性或构造参数是一个实际被定义了的值或者是在容器中的另一个bean的引用。
+* 每个属性或构造参数都将从其指定的格式转换为实际类型。默认情况下，spring可以将字符串提供的值转换为所有内置类型，如`int`，`long`，`String`，`boolean`等。
+
+在创建容器时，spring容器会验证每个bean的配置。但是，bean属性在bean真正被创建时，才会设置。当容器被创建时，单例范围的bean会被预先初始化。在`Bean Scopes`中，定义范围。此外，仅在请求时才创建bean。创建和分配bean的依赖关系时，可能会导致创建一个bean图。请注意，不匹配的依赖项可能在后期出现，即第一次创建受影响的bean时。
+
+***循环依赖***
+
+
+-------
+如果主要使用构造函数注入，则可能会创建无法解决的循环依赖问题。
+例如：class A的构造参数需要class B的实例注入，并且class B的构造参数需要class A的实例注入。如果配置了class A和class B相互注入，Spring IoC容器会在运行时检测到循环引用，并且抛出`BeanCurrentlyInCreationException`。
+
+一个解决办法是，重新编辑某些类的源码，用setter注入替换构造函数注入。或者，避免使用构造函数注入，只使用setter注入。 虽然不建议使用这样的方式，但是使用setter注入可以解决循环依赖问题。
+
+与典型情况不同（没有循环依赖的情况），Bean A和Bean B之间的循环依赖关系迫使其中一个Bean在完全初始化之前被注入到另一个Bean（先有鸡还是先有蛋的问题）。
+
+-------
+
+通常可以相信Spring会做正确的事情。它在容器被加载时，会检测配置问题，例如引用不存在的bean、循环依赖。在bean被实际创建时，Spring尽可能的推迟解决依赖关系。这意味着如果创建对象或依赖项存在问题，已经正确加载的spring容器会在请求对象时发生异常-例如，bean抛出丢失属性或无效属性的异常结果。这可能会延迟某些配置问题的可见性，这就是为什么默认情况下`ApplicationContext`实现会预先实例化单例bean。在实际需要这些bean之前，花一些时间和内存来创建他们，这会在创建`ApplicationContext`时发现问题，而不是稍后才能发现。用户可以覆盖这种行为，以便单例延迟初始化，而不是预先初始化。
+
+如果没有循环依赖的存在，当一个或者更多的协作bean被注入到一个依赖的bean时，每个协作的bean在注入到依赖bean之前都已经完全配置。这意味着，如果bean A对bean B有依赖关系，Spring IoC容器会在调用bean A的setter方法之前，事先完成bean B的配置。换句话说，这个bean被实例化（如果不是预先实例化的单例），它的依赖已经被设置，相关生命周期的方法被调用（例如`configured init method`，或者`InitializingBean callback method`）。
