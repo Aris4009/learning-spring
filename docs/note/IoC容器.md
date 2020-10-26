@@ -530,3 +530,60 @@ Setter注入只应该使用在类中分配合理的默认值的可选依赖项�
 通常可以相信Spring会做正确的事情。它在容器被加载时，会检测配置问题，例如引用不存在的bean、循环依赖。在bean被实际创建时，Spring尽可能的推迟解决依赖关系。这意味着如果创建对象或依赖项存在问题，已经正确加载的spring容器会在请求对象时发生异常-例如，bean抛出丢失属性或无效属性的异常结果。这可能会延迟某些配置问题的可见性，这就是为什么默认情况下`ApplicationContext`实现会预先实例化单例bean。在实际需要这些bean之前，花一些时间和内存来创建他们，这会在创建`ApplicationContext`时发现问题，而不是稍后才能发现。用户可以覆盖这种行为，以便单例延迟初始化，而不是预先初始化。
 
 如果没有循环依赖的存在，当一个或者更多的协作bean被注入到一个依赖的bean时，每个协作的bean在注入到依赖bean之前都已经完全配置。这意味着，如果bean A对bean B有依赖关系，Spring IoC容器会在调用bean A的setter方法之前，事先完成bean B的配置。换句话说，这个bean被实例化（如果不是预先实例化的单例），它的依赖已经被设置，相关生命周期的方法被调用（例如`configured init method`，或者`InitializingBean callback method`）。
+
+### 1.4.2 依赖和配置细节
+
+在前面的章节中提到，可以定义bean属性和构造参数来引用其他被管理的bean或者被定义的值。基于XML配置的元数据支持`<property/>和<constructor-arg/>`子元素，来达到这个目的。
+
+**字面值（原语、字符串等）**
+`<property/>`元素的`value`属性是指一个属性或者构造参数，他们都被字符串来表示。Spring的`conversion service`用来将这些字符串转换为实际的属性或参数。下面的例子显示了多种value的设置：
+
+```
+<bean id="myDataSource" class="org.apache.commons.dbcp.BasicDataSource" destroy-method="close">
+    <!-- results in a setDriverClassName(String) call -->
+    <property name="driverClassName" value="com.mysql.jdbc.Driver"/>
+    <property name="url" value="jdbc:mysql://localhost:3306/mydb"/>
+    <property name="username" value="root"/>
+    <property name="password" value="misterkaoli"/>
+</bean>
+```
+
+下面的例子使用`p`命名空间进行更简洁的XML配置
+```
+<beans xmlns="http://www.springframework.org/schema/beans"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns:p="http://www.springframework.org/schema/p"
+    xsi:schemaLocation="http://www.springframework.org/schema/beans
+    https://www.springframework.org/schema/beans/spring-beans.xsd">
+
+    <bean id="myDataSource" class="org.apache.commons.dbcp.BasicDataSource"
+        destroy-method="close"
+        p:driverClassName="com.mysql.jdbc.Driver"
+        p:url="jdbc:mysql://localhost:3306/mydb"
+        p:username="root"
+        p:password="misterkaoli"/>
+</beans>
+```
+
+上面的XML配置更简洁。然而，错别字会在运行时发现，并不是在设计时，除非IDE在定义bean时（例如Intellij IDEA或者Spring Tools for Eclipse）支持属性自动完成。强烈建议使用此类IDE帮助。
+
+用户也可以配置一个`java.util.Properties`实例，如：
+```
+<bean id="mappings"
+    class="org.springframework.context.support.PropertySourcesPlaceholderConfigurer">
+
+    <!-- typed as a java.util.Properties -->
+    <property name="properties">
+        <value>
+            jdbc.driver.className=com.mysql.jdbc.Driver
+            jdbc.url=jdbc:mysql://localhost:3306/mydb
+        </value>
+    </property>
+</bean>
+```
+
+Spring 容器使用JavaBeans的`PropertyEditor`机制，将`<value/>`元素内的文本转为一个`java.util.Properties`实例。
+
+`idref`**元素**
+
+
