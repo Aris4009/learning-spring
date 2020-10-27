@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd">
+    <!-- idref 是用来获取引用bean的name值，而不是实际的bean引用 -->
+    <bean id="idRefTarget" class="com.example.demo.dependencies.and.configuration.in.detail.IdRefTarget">
+        <constructor-arg name="name" value="111"></constructor-arg>
+    </bean>
+    <bean id="idRef" class="com.example.demo.dependencies.and.configuration.in.detail.IdRef">
+        <property name="idRefTargetName">
+            <idref bean="idRefTarget"/>
+        </property>
+    </bean>
+
+    <!-- 上面的例子和下面的例子效果相同 -->
+    <bean id="idRef1" class="com.example.demo.dependencies.and.configuration.in.detail.IdRef">
+        <property name="idRefTargetName" value="1"></property>
+    </bean>
+
+</beans>

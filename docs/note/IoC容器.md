@@ -586,4 +586,21 @@ Spring 容器使用JavaBeans的`PropertyEditor`机制，将`<value/>`元素内�
 
 `idref`**元素**
 
+`idref`元素只是一种防止错误的方法，可以将容器中另一个bean的id(**字面值，并不是引用**)传递给`<constructor-arg>`或者`<property/>`元素。下面的例子显示了如何使用它：
+```
+<bean id="theTargetBean" class="..."/>
+<bean id="theClientBean" class="...">
+    <property name="targetName">
+        <idref bean="theTargetBean"/>
+    </property>
+</bean>
+```
 
+前面的例子与下面的例子具有相同的效果：
+```
+<bean id="theTargetBean" class="..." />
+<bean id="client" class="...">
+    <property name="targetName" value="theTargetBean"/>
+</bean>
+```
+第一种形式比第二种形式更好，因为使用`idref`标签让容器在部署时验证引用的命名bean实际上是否存在。在第二个例子中，不会对传递的`targetName`执行验证。拼写错误尽在实例化客户端bean时才发现（可能导致致命的结果）。如果`client`是一个原型bean，这种错误和异常结果可能在部署容器很久之后才能被发现。
