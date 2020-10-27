@@ -20,10 +20,21 @@ public class StraightValues {
     private static final Logger log = LoggerFactory.getLogger(StraightValues.class);
 
     public static void main(String[] args) {
+        List<String> list = new ArrayList<String>() {{
+            add("myDatasource");
+            add("myDatasource1");
+            add("myDatasource3");
+        }};
+        list.forEach(dataSource -> {
+            process(dataSource);
+        });
+    }
+
+    private static void process(String dataSourceBeanId) {
         try {
             String path = "classpath:straightValues.xml";
             ClassPathXmlApplicationContext context = new ClassPathXmlApplicationContext(path);
-            DataSource dataSource = context.getBean("myDatasource2", DataSource.class);
+            DataSource dataSource = context.getBean(dataSourceBeanId, DataSource.class);
             Connection connection = dataSource.getConnection();
             Statement statement = connection.createStatement();
             ResultSet rs = statement.executeQuery("select * from test");
@@ -34,6 +45,7 @@ public class StraightValues {
                 data[1] = rs.getString(2);
                 list.add(data);
             }
+            log.info("{}", dataSource.hashCode());
             rs.close();
             statement.close();
             connection.close();

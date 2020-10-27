@@ -8,13 +8,13 @@
     <bean id="myDatasource" class="org.apache.commons.dbcp2.BasicDataSource">
         <property name="username" value="root"></property>
         <property name="password" value=""></property>
-        <property name="url" value="jdbc:mysql://localhost:3306/test"></property>
+        <property name="url" value="jdbc:mysql://localhost:3306/test?useSSL=false"></property>
         <property name="driverClassName" value="com.mysql.jdbc.Driver"></property>
     </bean>
 
     <!-- 通过p命名空间 -->
     <bean id="myDatasource1" class="org.apache.commons.dbcp2.BasicDataSource" destroy-method="close"
-          p:driverClassName="com.mysql.jdbc.Driver" p:url="jdbc:mysql://localhost:3306/test"
+          p:driverClassName="com.mysql.jdbc.Driver" p:url="jdbc:mysql://localhost:3306/test?useSSL=false"
           p:username="root"
           p:password="">
     </bean>
@@ -24,8 +24,17 @@
         <property name="properties">
             <value>
                 jdbc.driver.className=com.mysql.jdbc.Driver
-                jdbc.url=jdbc:mysql://localhost:3306/test
+                jdbc.url=jdbc:mysql://localhost:3306/test?useSSL=false
+                jdbc.username=root
+                jdbc.password=
             </value>
         </property>
     </bean>
+    <bean id="myDatasource3" class="org.apache.commons.dbcp2.BasicDataSource">
+        <property name="username" value="${jdbc.username}"></property>
+        <property name="password" value="${jdbc.password}"></property>
+        <property name="url" value="${jdbc.url}"></property>
+        <property name="driverClassName" value="${jdbc.driver.className}"></property>
+    </bean>
+
 </beans>
