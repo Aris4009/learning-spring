@@ -636,3 +636,152 @@ Spring 容器使用JavaBeans的`PropertyEditor`机制，将`<value/>`元素内�
     <!-- insert other configuration and dependencies as required here -->
 </bean>
 ```
+
+**内部Bean**
+在`<property/>`或者`<constructor-arg>`内部定义bean使用`<bean/>`标签，例如：
+```
+<bean id="outer" class="...">
+    <!-- instead of using a reference to a target bean, simply define the target bean inline -->
+    <property name="target">
+        <bean class="com.example.Person"> <!-- this is the inner bean -->
+            <property name="name" value="Fiona Apple"/>
+            <property name="age" value="25"/>
+        </bean>
+    </property>
+</bean>
+```
+
+一个内部的bean定义不需要指定ID或者name。如果指定了，容器也不会使用该值作为标识符。容器也会忽略`scope`标志位，因为内部beans总是匿名的并且总是随着外部bean被创建。不可能独立访问到内部bean或者将他们注入到其他bean中。
+
+一个极端情况，可以从自定义范围接受销毁回调-例如，一个单例bean包含范围是request-scoped的内部bean。内部bean实例的创建与包含它的bean绑定在一起，但是销毁回调使其可以参与request scope范围的生命周期。这不是普遍的情况。内部bean通常只共享其包含bean的作用于。
+
+**集合**
+`<list/>`，`<set/>`，`<map/>`，`<props/>`元素可以设置集合类型的属性参数，他们分别对应Java集合类型的`List`，`Set`，`Map`，`Properties`。下面的例子将展示如何使用他们：
+```
+<bean id="moreComplexObject" class="example.ComplexObject">
+    <!-- results in a setAdminEmails(java.util.Properties) call -->
+    <property name="adminEmails">
+        <props>
+            <prop key="administrator">administrator@example.org</prop>
+            <prop key="support">support@example.org</prop>
+            <prop key="development">development@example.org</prop>
+        </props>
+    </property>
+    <!-- results in a setSomeList(java.util.List) call -->
+    <property name="someList">
+        <list>
+            <value>a list element followed by a reference</value>
+            <ref bean="myDataSource" />
+        </list>
+    </property>
+    <!-- results in a setSomeMap(java.util.Map) call -->
+    <property name="someMap">
+        <map>
+            <entry key="an entry" value="just some string"/>
+            <entry key ="a ref" value-ref="myDataSource"/>
+        </map>
+    </property>
+    <!-- results in a setSomeSet(java.util.Set) call -->
+    <property name="someSet">
+        <set>
+            <value>just some string</value>
+            <ref bean="myDataSource" />
+        </set>
+    </property>
+</bean>
+```
+
+map的key或value，set的value也可以使一下任意元素：
+```
+bean | ref | idref | list | set | map | props | value | null
+```
+
+**合并集合**
+Spring容器支持集合的合并。应用开发者可以定义一个`<list/>`，`<set/>`，`<map/>`，`<props/>`的父元素，并且子元素`<list/>`，`<set/>`，`<map/>`，`<props/>`可以集成并覆盖父元素的值。子集合框架的值就是父元素和子元素合并后的值。
+
+这个章节是讨论父子bean的合并机制。不熟悉父bean和子bean定义的可能虚妄在之前阅读相关的内容。
+
+下面的例子展示了集合合并：
+```
+<beans>
+    <bean id="parent" abstract="true" class="example.ComplexObject">
+        <property name="adminEmails">
+            <props>
+                <prop key="administrator">administrator@example.com</prop>
+                <prop key="support">support@example.com</prop>
+            </props>
+        </property>
+    </bean>
+    <bean id="child" parent="parent">
+        <property name="adminEmails">
+            <!-- the merge is specified on the child collection definition -->
+            <props merge="true">
+                <prop key="sales">sales@example.com</prop>
+                <prop key="support">support@example.co.uk</prop>
+            </props>
+        </property>
+    </bean>
+<beans>
+```
+
+注意，需要在子bean的`<props/>`元素中使用了`merge=true`属性。当子bean被容器解析和初始化时，实例结果的`adminEmails`属性包含了合并后的结果，下面的结果展示了合并后的结果：
+```
+child:{support=support@example.co.uk, administrator=administrator@example.com, sales=sales@example.com}
+```
+合并行为支持`<list/>`，`<set/>`，`<map/>`，`<props/>`集合类型。对于`<list/>`元素，语义上和`List`集合类型一致（这就意味着需要注意集合的顺序）。父列表的值优先于子列表的值。对于`Map`，`Set`和`Properties`的集合类型，不存在顺序问题。因此，任何排序语义对这些集合都是无效的。
+
+**集合合并的限制**
+不能讲不通类型的集合进行合并（例如`Map`和`List`）。如果尝试这样做，将会抛出异常。`merge`属性必须在更低层具有集成关系的孩子中定义。定义在父集合的`merge`是多余的，不会进行合并。
+
+**强类型集合**
+随着在Java5中引入泛型类型，可以定义集合框架的类型。这意味着可以声明集合框架的类型（例如集合中只包含`String`类型）。如果使用Spring依赖注入一个强类型的集合框架到bean中，可以利用Spring提供的类型转换支持，以便将请类型的集合框架实例的元素转换为适当的类型，然后添加到集合框架中。下面的例子展示了如何定义这样的bean：
+```
+public class SomeClass {
+
+    private Map<String, Float> accounts;
+
+    public void setAccounts(Map<String, Float> accounts) {
+        this.accounts = accounts;
+    }
+}
+```
+
+```
+<beans>
+    <bean id="something" class="x.y.SomeClass">
+        <property name="accounts">
+            <map>
+                <entry key="one" value="9.99"/>
+                <entry key="two" value="2.75"/>
+                <entry key="six" value="3.99"/>
+            </map>
+        </property>
+    </bean>
+</beans>
+```
+
+当`accounts`的`something`属性准备注入时，元素类型的泛型信息通过`Map<String,FLoat>`的强类型反射得到。Spring的类型转换将多个值转换为`Float`的实际类型。
+
+**Null和空字符串**
+Spring对于属性为空的参数类似于空`Strings`。下面的配置设置的`email`属性的值为("")。
+<bean class="ExampleBean">
+    <property name="email" value=""/>
+</bean>
+
+前面的例子与下面的代码类似：
+```
+exampleBean.setEmail("");
+```
+
+`<null/>`标签用来处理`null`值。例如下面的例子：
+```
+<bean class="ExampleBean">
+    <property name="email">
+        <null/>
+    </property>
+</bean>
+```
+上面的例子与下面的代码类似：
+```
+exampleBean.setEmail(null);
+```
