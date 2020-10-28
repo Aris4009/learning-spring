@@ -610,4 +610,29 @@ Spring 容器使用JavaBeans的`PropertyEditor`机制，将`<value/>`元素内�
 `<idref>`元素在Spring 2.0之前的版本中，通常被用在ProxyFactoryBean 定义的AOP拦截器配置中。指定拦截器名称时，使用`<idref/>`元素可防止拼写出错误的拦截器ID。
 
 **引用其他的bean**
+`ref`元素是`<constructor-arg/>`或`<property/>`元素内的最终的元素。容器管理的bean可以被设置为bean的属性。被引用的bean是要设置属性bean的依赖，并且在设置属性之前需要初始化它。（如果协作者是单例bean，他可能已经被容器初始化了。）所有引用最终都是对另一个对象的引用。范围和验证取决于是否通过`bean`还是`parent`属性指定一个对象的ID或者名称。
 
+通过`<ref/>`标记的bean属性指定目标bean是最通用的形式，它允许在同一容器或者父容器中创建任何bean的引用。不管是否是在同一个XML文件中。`bean`的值可能与目标bean的`id`属性相同或者与目标bean的`name`属性相同。下面的例子展示了如何使用`ref`元素
+```
+<ref bean="someBean">
+```
+
+通过`parent`属性来指定目标bean可以创建当前容器的父容器中的bean的引用。`parent`属性的值可能与目标bean的`id`属性或者目标bean的`name`属性相同。目标bean必须在当前容器的父容器中。这种变量主要应该用在具有层级结构的容器中和想要在父容器中将现有bean包装在父容器的同名代理bean，下面的例子展示了如何使用`parent`属性：
+
+```
+<!-- in the parent context -->
+<bean id="accountService" class="com.something.SimpleAccountService">
+    <!-- insert dependencies as required as here -->
+</bean>
+```
+
+```
+<!-- in the child (descendant) context -->
+<bean id="accountService" <!-- bean name is the same as the parent bean -->
+    class="org.springframework.aop.framework.ProxyFactoryBean">
+    <property name="target">
+        <ref parent="accountService"/> <!-- notice how we refer to the parent bean -->
+    </property>
+    <!-- insert other configuration and dependencies as required here -->
+</bean>
+```
