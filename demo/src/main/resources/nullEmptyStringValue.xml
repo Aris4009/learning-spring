@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd">
+    <bean id="nullString" class="com.example.demo.dependencies.and.configuration.in.detail.NullEmptyString">
+        <property name="name">
+            <null></null>
+        </property>
+    </bean>
+
+    <bean id="emptyString" class="com.example.demo.dependencies.and.configuration.in.detail.NullEmptyString">
+        <property name="name" value="">
+        </property>
+    </bean>
+</beans>

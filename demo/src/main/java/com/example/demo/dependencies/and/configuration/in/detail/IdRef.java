@@ -4,6 +4,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 
+/**
+ * idref标签使用
+ */
 public class IdRef {
 
     private IdRefTarget idRefTargetName;
