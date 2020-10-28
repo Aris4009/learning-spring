@@ -604,3 +604,10 @@ Spring 容器使用JavaBeans的`PropertyEditor`机制，将`<value/>`元素内�
 </bean>
 ```
 第一种形式比第二种形式更好，因为使用`idref`标签让容器在部署时验证引用的命名bean实际上是否存在。在第二个例子中，不会对传递的`targetName`执行验证。拼写错误尽在实例化客户端bean时才发现（可能导致致命的结果）。如果`client`是一个原型bean，这种错误和异常结果可能在部署容器很久之后才能被发现。
+
+*idref元素的local属性在bean XSD4.0中不在提供支持。*
+
+`<idref>`元素在Spring 2.0之前的版本中，通常被用在ProxyFactoryBean 定义的AOP拦截器配置中。指定拦截器名称时，使用`<idref/>`元素可防止拼写出错误的拦截器ID。
+
+**引用其他的bean**
+
