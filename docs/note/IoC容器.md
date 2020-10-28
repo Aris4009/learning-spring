@@ -785,3 +785,123 @@ exampleBean.setEmail("");
 ```
 exampleBean.setEmail(null);
 ```
+
+**具有p命名空间的XML快捷方式**
+p命名空间可以用来代替<property/>元素，描述bean的属性。
+
+Spring支持基于XML Schema扩展命名配置格式。
+
+下面的例子会解析出同样的结果：
+```
+<beans xmlns="http://www.springframework.org/schema/beans"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns:p="http://www.springframework.org/schema/p"
+    xsi:schemaLocation="http://www.springframework.org/schema/beans
+        https://www.springframework.org/schema/beans/spring-beans.xsd">
+
+    <bean name="classic" class="com.example.ExampleBean">
+        <property name="email" value="someone@somewhere.com"/>
+    </bean>
+
+    <bean name="p-namespace" class="com.example.ExampleBean"
+        p:email="someone@somewhere.com"/>
+</beans>
+```
+
+这个例子展示了在bean定义中，属性使用p命名空间。Spring包含了属性的声明。前面提到了，p命名空间没有schema定义，所以可以设置属性的名字到property上。
+
+下面的例子包含了引用另一个bean的定义：
+```
+<beans xmlns="http://www.springframework.org/schema/beans"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns:p="http://www.springframework.org/schema/p"
+    xsi:schemaLocation="http://www.springframework.org/schema/beans
+        https://www.springframework.org/schema/beans/spring-beans.xsd">
+
+    <bean name="john-classic" class="com.example.Person">
+        <property name="name" value="John Doe"/>
+        <property name="spouse" ref="jane"/>
+    </bean>
+
+    <bean name="john-modern"
+        class="com.example.Person"
+        p:name="John Doe"
+        p:spouse-ref="jane"/>
+
+    <bean name="jane" class="com.example.Person">
+        <property name="name" value="Jane Doe"/>
+    </bean>
+</beans>
+```
+
+这个例子不仅包含了使用p命名空间来设置属性值，而且使用了特殊的格式来声明引用。第一个bean使用了`<property name="spouse" ref="jane"/>`，创建从bean john到bean jane的引用，第二个bean定义使用了`p:spouse-ref="jane`作为属性来达到相同的目的。在这个例子中，`spouse`是属性名，`-ref`部分表名这个值不是字面量值，而是另一个bean的引用。
+
+*p命名空间不是灵活的XML标准格式。例如，声明属性引用的格式与以`Ref`结尾的属性有冲突，标准的XML格式就不会。建议小心选择适当的格式，避免同时使用三种格式*
+
+**c命名空间的XML快捷方式**
+与p命名空间类似，c命名空间出现在Spring 3.1，用构造函数的内联属性参数代替`<construct-arg>`元素。
+
+下面的例子使用c命名空间，展示基于构造函数的注入：
+
+```
+<beans xmlns="http://www.springframework.org/schema/beans"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns:c="http://www.springframework.org/schema/c"
+    xsi:schemaLocation="http://www.springframework.org/schema/beans
+        https://www.springframework.org/schema/beans/spring-beans.xsd">
+
+    <bean id="beanTwo" class="x.y.ThingTwo"/>
+    <bean id="beanThree" class="x.y.ThingThree"/>
+
+    <!-- traditional declaration with optional argument names -->
+    <bean id="beanOne" class="x.y.ThingOne">
+        <constructor-arg name="thingTwo" ref="beanTwo"/>
+        <constructor-arg name="thingThree" ref="beanThree"/>
+        <constructor-arg name="email" value="something@somewhere.com"/>
+    </bean>
+
+    <!-- c-namespace declaration with argument names -->
+    <bean id="beanOne" class="x.y.ThingOne" c:thingTwo-ref="beanTwo"
+        c:thingThree-ref="beanThree" c:email="something@somewhere.com"/>
+
+</beans>
+```
+
+`c:`命名空间和`p:`命名空间有相同的约定（以`-ref`结尾表示bean的引用）。类似的，它需要通过XML文件声明，没有呗定义在XSD schema中。
+
+对于极少数情况下，构造函数的参数名字是不可用的（通常如果是被编译好的字节码并且没有debug信息），可能会使用参数的索引来表示参数，例如：
+```
+<bean id="beanOne" class="x.y.ThingOne" c:_0-ref="beanTwo" c:_1-ref="beanThree"
+    c:_2="something@somewhere.com"/>
+```
+
+*由于XML语法，索引符号需要使用`_`表示，作为XML的属性名，不允许以数字开头。一个正确的索引符号也可以用在<construct-arg>元素中，但是不常用，因为那里通常只需要简单的声明即可。*
+
+实践中，构造函数解析机制对于匹配参数来说是非常有效的，除非真的需要这样做，建议在配置中使用名字符号来表示。
+
+**复合属性名**
+当设置bean属性时，可以使用复合或者嵌套属性名，只要路径的所有组成部分（最终属性名除外）都不为`null`。考虑下面的bean定义：
+```
+<bean id="something" class="things.ThingOne">
+    <property name="fred.bob.sammy" value="123" />
+</bean>
+```
+
+**使用`depends-on`**
+如果一个bean是另一个bean的依赖，这通常意味着这个bean需要被设置为另一个bean的属性。通常可以通过`<ref/>`元素来完成。然而，有时候bean之间的依赖不太直接。例如，当一个类需要触发静态初始化时，就像数据库驱动注册。`depends-on`属性可以强制在bean使用他们之前被初始化。下面的例子展示了使用`depends-on`属性来表示一个单例bean的依赖：
+```
+<bean id="beanOne" class="ExampleBean" depends-on="manager"/>
+<bean id="manager" class="ManagerBean" />
+```
+
+为了表示依赖多个bean，`depends-on`支持bean名称的列表（逗号，空白符或者分号来分割）：
+```
+<bean id="beanOne" class="ExampleBean" depends-on="manager,accountDao">
+    <property name="manager" ref="manager" />
+</bean>
+
+<bean id="manager" class="ManagerBean" />
+<bean id="accountDao" class="x.y.jdbc.JdbcAccountDao" />
+```
+
+*`depends-on`属性既可以指定初始化时间相关性，也可以仅在单例bean的情况下指定相应的销毁时间相关性。与给定bean定义依赖关系的从属bean首先被销毁，然后再销毁给定bean本身。因此，依赖也可以控制关闭顺序。*
