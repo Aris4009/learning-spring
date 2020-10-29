@@ -905,3 +905,24 @@ Spring支持基于XML Schema扩展命名配置格式。
 ```
 
 *`depends-on`属性既可以指定初始化时间相关性，也可以仅在单例bean的情况下指定相应的销毁时间相关性。与给定bean定义依赖关系的从属bean首先被销毁，然后再销毁给定bean本身。因此，依赖也可以控制关闭顺序。*
+
+### 1.4.4. 延迟初始化Bean
+
+默认情况下，在初始化过程中，ApplicationContext的实现会尽可能早的创建和配置所有单例bean。通常，提前这种预实例化是可取的，因为错误的配置或者错误的环境会立即被发现，而不是很久以后才发现。当不需要这种预处理时，可以通过标记延迟加载来标记bena定义。一个延迟加载的bean会通知IoC容器，当它被请求时，才会创建实例而不是在启动时就创建。
+
+在XML中，这种行为是通过`<bean/>`元素中的`lazy-init`来控制的，下面的例子展示了延迟加载：
+```
+<bean id="lazy" class="com.something.ExpensiveToCreateBean" lazy-init="true"/>
+<bean name="not.lazy" class="com.something.AnotherBean"/>
+```
+
+当前面的配置被`ApplicationContext`使用时，启动`ApplicationContext`时，不急于预先实例化被标记为`lazy-init`的bean，其他的bean被预先实例化。
+
+然而，当延迟初始化的bean是一个单例bean的依赖，这会导致这个bean不会延迟初始化，`ApplicationContext`会在启动阶段创建延迟bean的实例，因为它biubiu满足单例的依赖。延迟初始化的bean被注入到其他未初始化的单例bean中。
+
+通过使用`<bean/>`元素中的`default-lazy-init`属性，可以在容器级别上控制延迟初始化，例如下面的例子：
+```
+<beans default-lazy-init="true">
+    <!-- no beans will be pre-instantiated... -->
+</beans>
+```
