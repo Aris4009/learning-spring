@@ -887,7 +887,7 @@ Spring支持基于XML Schema扩展命名配置格式。
 </bean>
 ```
 
-**使用`depends-on`**
+### 1.4.3. 使用`depends-on`
 如果一个bean是另一个bean的依赖，这通常意味着这个bean需要被设置为另一个bean的属性。通常可以通过`<ref/>`元素来完成。然而，有时候bean之间的依赖不太直接。例如，当一个类需要触发静态初始化时，就像数据库驱动注册。`depends-on`属性可以强制在bean使用他们之前被初始化。下面的例子展示了使用`depends-on`属性来表示一个单例bean的依赖：
 ```
 <bean id="beanOne" class="ExampleBean" depends-on="manager"/>

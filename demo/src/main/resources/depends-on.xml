@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd">
+    <bean id="classC" class="com.example.demo.using.depends.on.ClassC" factory-method="init"
+          depends-on="classA,classB"></bean>
+    <bean id="classA" class="com.example.demo.using.depends.on.ClassA" factory-method="init"></bean>
+    <bean id="classB" class="com.example.demo.using.depends.on.ClassB" factory-method="init"></bean>
+</beans>
