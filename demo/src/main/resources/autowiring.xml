@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd">
+    <bean id="hello" name="hello" class="com.example.demo.hello.Hello"></bean>
+    <bean id="no" class="com.example.demo.wiring.Autowiring"></bean>
+    <bean id="byName" class="com.example.demo.wiring.Autowiring" autowire="byName"></bean>
+    <bean id="byType" class="com.example.demo.wiring.Autowiring" autowire="byType"></bean>
+    <bean id="construct" class="com.example.demo.wiring.Autowiring" autowire="constructor"></bean>
+</beans>
