@@ -943,3 +943,75 @@ Spring容器可以自动装配互相协作的bean。可以通过检查`Applicati
 | `constructor` | 与`byType`类似，但是是用在构造参数上的。如果容器中不存在和构造参数一个类型的bean，将会引发致命错误。                                                                                             |
 
 使用`byType`或者`constructor`自动装配模式，可以装配数组和集合框架。在这些情况下，容器中所有自动装配的候选期望与预期的类型匹配，以满足依赖。如果希望`Map`的key类型是`String`，可以自动装配一个强类型的`Map`实例。一个自动装配的`Map`实例的值包含所有希望匹配到该类型的bean实例，并且Map的实例的keys包含响应的bean名称。
+
+**自动装配的局限和缺点**
+
+当在项目中一致使用自动装配时，效果最好。如果通常不使用自动装配，则可能会使开发人员仅适用自动装配来链接一两个bean定义而感到困惑。
+
+自动装配的缺点和局限如下：
+* 属性和构造函数参数中的显示依赖会始终覆盖自动装配。不能装配原始类型，如`String`，和`Classes`（以及此类简单属性的数组）。这是设计上的局限性。
+* 自动装配不如显示装配精确。尽管如此，Spring还是谨慎地避免在可能产生意外结果的歧义情况下进行猜测。Spring管理的对象之间的关系不在有明确记录。
+* 装配信息可能对于需要从Spring容器中生成文档的工具来说不适用。
+* 容器内的多个bean定义可能与setter方法或者构造函数参数指定的类型匹配。对于数组、集合或者`Map`实例，这不一定是问题。然而，对于需要单个值的依赖项，不会任意解决此歧义。如果没有唯一可用的bean定义，会抛出一个异常。
+
+在后一种情况下，有几种选择：
+* 放弃自动装配，转而使用明确的装配
+* 通过设置bean的`autowire-candidate`属性为`false`来避免自动装配
+* 通过将其`<bean>/`元素的`primary`属性设置为`true`，将单例bean定义为主要的候选项。
+* 通过基于注解的配置，更细粒度的实现控件。
+
+**从自动装配中排除bean**
+在每个bean的基础上，可以从制动装配中排除一个bean。在Spring的XML格式中，设置`<bean/>`元素的`autowire-candidate`属性为`false`。容器使用特定的bean定义，使自动装配不可用（包括注解配置，例如使用`@Autowired`）。
+
+*`autowire-candidate`属性仅影响类型的自动装配。它不会影响按名称的显示引用，即使未将制定的bean标记为自动装配的候选项，该名称也可以得到解析。因此，如果名称匹配，按名称自动装配仍然会注入bean。*
+
+可以基于bean名称的模式匹配来限制自动装配候选。顶级元素`<beans/>`在其`default-autowire-candidates`属性中接受一个或者更多的模式。例如，限制候选状态是以`Repository`结尾的任何bean，需要提供一个`*Repository`字符值。对于多个匹配模式，可以使用逗号分隔符。bean定义的`autowire-candidate`属性的值`true`或者`false`始终是优先的。对于此类bean，匹配模式不会生效。
+
+这些技巧对于不希望通过自动装配来注入bean非常有用。这并不意味着排除的bean本身不能进行自动装配。相反，bean本身不能变为其他bean的候选装配对象。
+
+### 1.4.5 方法注入
+
+在大多数场景中，容器中的多数bean是单例的。当一个单例bean需要和另一个单例bean协作或一个非单例bean需要和另一个非单例bean协作时，通常将一个bean定义为另一个bean的属性来处理依赖关系。当bean的生命周期不同时，问题就出现了。假设单例bean A需要一个非单例（属性）bean B，也许实在A的每个方法上调用。容器只创建单例bean A一次，因此只有一次机会去设置属性。容器不能在需要的时候给bean A每次都提供一个新的bean B的实例。
+
+解决方案是放弃某些控制反转。可以通过实现`ApplicationContextAware`接口使bean A知道该容器，使每次在bean A需要的时候，通过请求一个新的bean B的实例，下面的方法展示了这种情况：
+
+```
+// a class that uses a stateful Command-style class to perform some processing
+package fiona.apple;
+
+// Spring-API imports
+import org.springframework.beans.BeansException;
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.ApplicationContextAware;
+
+public class CommandManager implements ApplicationContextAware {
+
+    private ApplicationContext applicationContext;
+
+    public Object process(Map commandState) {
+        // grab a new instance of the appropriate Command
+        Command command = createCommand();
+        // set the state on the (hopefully brand new) Command instance
+        command.setState(commandState);
+        return command.execute();
+    }
+
+    protected Command createCommand() {
+        // notice the Spring API dependency!
+        return this.applicationContext.getBean("command", Command.class);
+    }
+
+    public void setApplicationContext(
+            ApplicationContext applicationContext) throws BeansException {
+        this.applicationContext = applicationContext;
+    }
+}
+```
+
+前面的例子是不可取的，因为业务逻辑代码和Spring框架耦合了。方法注入是Spring IoC容器提供的一项高级功能，可以更干净地处理此用例。
+
+**查找方法注入**
+查找方法注入是容器重写容器管理的bean上的方法并返回容器中另一个命名bean的查找结果的能力。查找通常涉及原型bean，如上一节所述。Spring框架通过使用CGLIB库的字节码来动态生成覆盖该方法的子类，从而实现此方法注入。
+
+* *为了让动态生成的子类工作，Spring容器的子类的类也不能是final，而要覆盖的方法也不能是final*
+* 
