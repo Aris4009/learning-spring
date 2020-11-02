@@ -1013,5 +1013,122 @@ public class CommandManager implements ApplicationContextAware {
 **查找方法注入**
 查找方法注入是容器重写容器管理的bean上的方法并返回容器中另一个命名bean的查找结果的能力。查找通常涉及原型bean，如上一节所述。Spring框架通过使用CGLIB库的字节码来动态生成覆盖该方法的子类，从而实现此方法注入。
 
-* *为了让动态生成的子类工作，Spring容器的子类的类也不能是final，而要覆盖的方法也不能是final*
-* 
+* *为了让动态生成的子类工作，Spring容器的子类不能是final，而要覆盖的方法也不能是final修饰的方法。*
+* *对具有抽象方法的类进行单元测试，需要用户自己对该类进行子类化，并提供抽象方法的实现。*
+* *组件扫描时，需要具体的类去选择具体的方法。*
+* *另一个关键限值是，查找方法不适用于工厂方法，尤其不适用与配置类中的`@Bean`方法。因为在这种情况下，容器不负责创建实例，因此无法创建运行时生成的动态子类*。
+
+对于上面的`CommandManager`类中，Spring可以 容器动态覆盖并实现`createCommand()`方法，并且`CommandManager`类没有任何Spring
+依赖，如下面的例子：
+```
+package fiona.apple;
+
+// no more Spring imports!
+
+public abstract class CommandManager {
+
+    public Object process(Object commandState) {
+        // grab a new instance of the appropriate Command interface
+        Command command = createCommand();
+        // set the state on the (hopefully brand new) Command instance
+        command.setState(commandState);
+        return command.execute();
+    }
+
+    // okay... but where is the implementation of this method?
+    protected abstract Command createCommand();
+}
+```
+
+每当需要新的`myCommand` bean实例时，标识为`commandManager`的bean就会调用自己的`createCommand()`方法。`myCommand`bean作为一个原型类，在缺失需要的时候才使用。如果是一个单例，`myCommand`会在每次返回相同的实例。
+
+还有一种方法可是实现方法查找注入，那就是基于注解的组件模型。可以通过`@Lookup`注解声明，下面的例子展示了如何使用这种技术：
+```
+public abstract class CommandManager {
+
+    public Object process(Object commandState) {
+        Command command = createCommand();
+        command.setState(commandState);
+        return command.execute();
+    }
+
+    @Lookup("myCommand")
+    protected abstract Command createCommand();
+}
+```
+
+或者，更惯用的方法是，可以依赖目标bean根据lookup方法的声明的返回类型来解析，如下：
+```
+public abstract class CommandManager {
+
+    public Object process(Object commandState) {
+        MyCommand command = createCommand();
+        command.setState(commandState);
+        return command.execute();
+    }
+
+    @Lookup
+    protected abstract MyCommand createCommand();
+}
+```
+
+注意，通常应该使用具体的子类实现声明此类带注释的查找方法，以使他们与Spring组件扫描规则兼容（默认情况下，抽象类会被忽略）。此限制不适用于显示注册或者显示导入的Bean类。
+
+*另外一种访问不同范围目标bean的方法是一个`ObjectFactory/Provider`注入点，可查看Bean的依赖范围*
+*`ServiceLocatorFactoryBean`或许会有帮助*
+
+**任意方法替换**
+
+相比查找方法注入，一个更少使用的方法注入形式是任意方法替换。
+
+基于XML配置的元数据，可以使用`replace-method`元素来替换已经存在的方法实现。思考下面的类，有一个方法叫`computeValue`是需要覆盖的：
+
+```
+public class MyValueCalculator {
+
+    public String computeValue(String input) {
+        // some real code...
+    }
+
+    // some other methods...
+}
+```
+
+实现了`org.springframework.beans.factory.support.MethodReplacer`的类提供了一个新的方法定义，如下：
+```
+/**
+ * meant to be used to override the existing computeValue(String)
+ * implementation in MyValueCalculator
+ */
+public class ReplacementComputeValue implements MethodReplacer {
+
+    public Object reimplement(Object o, Method m, Object[] args) throws Throwable {
+        // get the input value, work with it, and return a computed result
+        String input = (String) args[0];
+        ...
+        return ...;
+    }
+}
+```
+
+原始类定义和指定的覆盖方法类似如下例子：
+```
+<bean id="myValueCalculator" class="x.y.z.MyValueCalculator">
+    <!-- arbitrary method replacement -->
+    <replaced-method name="computeValue" replacer="replacementComputeValue">
+        <arg-type>String</arg-type>
+    </replaced-method>
+</bean>
+
+<bean id="replacementComputeValue" class="a.b.c.ReplacementComputeValue"/>
+```
+
+在`<replaced-method/>`元素中，可以使用一个或者多个`<arg-type/>`元素来指定被覆盖方法的签名。如果方法被重载并且有多重存在的变体，签名参数是必须的。为了方便，字符串类型的参数可以用子字符串来代替全限定类型名。例如下面的例子都可以匹配到`java.lang.String`：
+
+```
+java.lang.String
+String
+Str
+```
+
+因为参数数量通常足以区分每个可能的选择，通过仅键入与参数类型匹配的最短字符串，来节约键入时间。
