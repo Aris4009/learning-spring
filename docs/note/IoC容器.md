@@ -1132,3 +1132,54 @@ Str
 ```
 
 因为参数数量通常足以区分每个可能的选择，通过仅键入与参数类型匹配的最短字符串，来节约键入时间。
+
+## 1.5 Bean范围
+当创建一个bean definition时，通过它可以创建一个清单，这个清单是用来创建实例的。这个想法非常重要，它和类一样，可以通过一个清单，创建多个类的实例对象。
+
+用户不仅可以从bean definition中控制对象的各种依赖和配置值，而且可以控制bean的范围。这个方法是强大而灵活的，因为可以通过配置可以选择创建对象的范围，不需要在Java类级别拷贝对象的范围。Bean可以被定义多个范围中的一个。Spring支持6中范围，如果建立web应用程序是，其中4中才可以使用。用户也可以自己创建bean范围。
+
+下面的表格描述了支持的范围：
+
+| Scope       | Description                                                           |
+|-------------|-----------------------------------------------------------------------|
+| singleton   | Spring IoC容器默认创建的是单例bean。                                             |
+| prototype   | 将单个bean定义的作用域限定为任意数量                                                  |
+| request     | 将单个bean定义的作用于限定为单个HTTP 请求的生命周期内。因此，每个HTTP请求会生成一个实例对象。只有当应用为web程序时，才有效 |
+| session     | 将单个bean定义的作用于限定为单个HTTP Session的生命周期内。只有当应用为web程序时，才有效                 |
+| application | 将单个bean定义的作用于限定为这个ServletContext生命周期内。只有当应用为web程序时，才有效                |
+| websocket   | 将单个bean定义的作用于限定为一个WebSocket的生命周期内。只有当应用为web程序时，才有效。                   |
+
+### 1.5.1 单例范围
+
+仅管理一个单例bean的共享实例，所有请求通过ID来匹配bean definition会导致Spring 容器返回一个bean的特殊实例。
+
+换一个方式，当定义一个bean definition并且它的范围是单例，Spring IoC容器会创建该bean definition所定义个对象的一个实例。这个实例被缓存在singleton beans中，所有后续的请求或引用这个被命名的bean都将获得缓存对象。下面的图展示了单例范围是如何工作的：
+
+![](https://raw.githubusercontent.com/Aris4009/attachment/main/singleton.png)
+
+Spring中的单例bean的概念与GoF书中定义的单例模式不同。GoF单例是在对象中硬编码，对于每个特定的类，在每个类加载器中，只有一个该类的实例。Spring的单例范围最好的描述是每个容器每个bean。这意味着，如果在一个单独的Spring容器中为一个特定的类定义bean，这个Spring容器通过bean definition只会创建一个该类的实例。单例范围是Spring定义bean的默认范围。如果使用XML作为配置，可以像下面例子那样定义bean：
+```
+<bean id="accountService" class="com.something.DefaultAccountService"/>
+
+<!-- the following is equivalent, though redundant (singleton scope is the default) -->
+<bean id="accountService" class="com.something.DefaultAccountService" scope="singleton"/>
+```
+
+### 1.5.2. 原型范围
+
+非单例的原型范围，会导致在每次请求指定bean时，创建一个新的实例。也就是说，该bean被注入到另一个bean或者通过`getBean`方法调用来请求他。有一条规则，用户应该在有状态的bean中使用原型范围而在无状态的bean中使用单例范围。
+
+下面这个图证实了Spring中的原型范围：
+
+![](https://raw.githubusercontent.com/Aris4009/attachment/main/20201102173503.png) 
+
+（一个DAO不是典型的原型配置，因为典型的DAO不需要持有任何会话状态。对用户来说，重用单例图的核心更加容易。）
+
+下面的定义展示了如何定义一个原型：
+```
+<bean id="accountService" class="com.something.DefaultAccountService" scope="prototype"/>
+```
+
+对比其他bean范围，Spring不会完全管理原型bean的生命周期。容器负责初始化、配置，组装原型对象，然后交给客户端，而无需对该原型实例进一步记录。因此，虽然初始化生命周期的回调方法在所有对象上呗调用，而不管作用域如何，对于原型，不会调用已配置的销毁生命周期回调。客户端代码必须清除原型对象，并且释放持有的昂贵的系统资源。为了使Spring容器释放原型作用域拥有的资源，可是尝试使用一个特定的`bean post-processor`，其中包含那些需要清理的bean的引用。
+
+在某些方面，Spring容器的原型作用域是用来代替Java的`new`运算符的。超过这点的所有生命周期管理必须由客户端处理。
