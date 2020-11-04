@@ -1183,3 +1183,148 @@ Spring中的单例bean的概念与GoF书中定义的单例模式不同。GoF单�
 对比其他bean范围，Spring不会完全管理原型bean的生命周期。容器负责初始化、配置，组装原型对象，然后交给客户端，而无需对该原型实例进一步记录。因此，虽然初始化生命周期的回调方法在所有对象上呗调用，而不管作用域如何，对于原型，不会调用已配置的销毁生命周期回调。客户端代码必须清除原型对象，并且释放持有的昂贵的系统资源。为了使Spring容器释放原型作用域拥有的资源，可是尝试使用一个特定的`bean post-processor`，其中包含那些需要清理的bean的引用。
 
 在某些方面，Spring容器的原型作用域是用来代替Java的`new`运算符的。超过这点的所有生命周期管理必须由客户端处理。
+
+### 1.5.3 具有原型依赖关系的单例bean
+
+当使用对原型bean有依赖的单例作用域的bean时，依赖关系在实例化时期已经被解析。因此，如果在一个单例作用域的bean中注入原型作用域的bean，原型bean已经被实例化然后被注入到单例bean中。这个实例是提供给单例bean的唯一实例。
+
+然而，假设在运行时，想要让单例bean重复请求一个新的原型bean实例，不能讲原型bean注入到单例bean中。因为当容器初始化单例bena并且解析和注入他的依赖时，注入仅发生一次。如果需要运行时获取一个原型bean的实例，需要参考方法注入。
+
+### 1.5.3 Request,Session,Application,WebSocket作用域
+仅在使用web感知的Spring `Application`的实现时（例如：`XmlWebApplicationContext`），才能使用
+`request`,`session`,`application`,`websocket`这四种bean作用域。如果将这些作用域与常规Spring IoC容器一起使用，例如`ClassPathXmlApplication`，会抛出`IllegalStateException`异常。
+
+**初始化Web配置**
+
+为了支持上面四种bean作用域，在定义bean时，需要一些少量的初始配置。（这些配置不需要在`singleton`和`prototype`这两种标准作用域中设置）。
+
+如何完成初始化配置，依赖于用户特定的Servlet环境。
+
+如果通过Spring Web MCV访问bean的作用域，事实上，是通过Spring的`DispatcherServlet`来处理请求的，不需要特殊的设置，`DispatcherServlet`   已经暴露了所有相关的状态。
+
+如果使用Servlet 2.5的web容器，请求在Spring的`DispatcherServlet`外部被处理（例如，当使用JSF或者Struts），需要注册`org.springframework.web.context.request.RequestContextListener``ServletRequestListener`。对于Servlet3.0以后的版本，可以通过使用`WebApplicationInitializer`接口编程来实现。还有另一种方法，对于旧的容器，通过在web应用的`web.xml`中增加如下声明：
+```
+<web-app>
+    ...
+    <listener>
+        <listener-class>
+org.springframework.web.context.request.RequestContextListener
+        </listener-class>
+    </listener>
+    ...
+</web-app>
+```
+
+或者，如果监听器设置有问题，考虑使用Spring的`RequestContextFilter`。这个过滤器依赖web应用程序的配置，所以里必须适当的改变它。下面的监听器列出了web应用程序过滤器的一部分内容：
+```
+<web-app>
+    ...
+    <filter>
+        <filter-name>requestContextFilter</filter-name>
+        <filter-class>org.springframework.web.filter.RequestContextFilter</filter-class>
+    </filter>
+    <filter-mapping>
+        <filter-name>requestContextFilter</filter-name>
+        <url-pattern>/*</url-pattern>
+    </filter-mapping>
+    ...
+</web-app>
+```
+
+`DispatcherServlet`，`RequestContextListener`，`RequestContextFilter`都有相同的作用，即将HTTP请求对象绑定到处理请求的线程上。这使得在请求和会话作用域的bean可以在调用链的下游使用。
+
+**Request作用域**
+
+思考下面定义bean的XML配置：
+```
+<bean id="loginAction" class="com.something.LoginAction" scope="request"/>
+```
+
+Spring容器通过使用`loginAction`定义，在每次HTTP请求时，创建一个`LoginAction`bean的实例。也就是说，`loginAction`bean的作用域是HTTP request级别的。用户可以在实例创建后随意改变该实例的状态，因为其他相同的实例不会看到这些状态的改变。他们都是对于单个请求的。当请求完成处理后，这个作用域的实例就会被丢弃。
+
+当使用基于注解驱动组件或者Java配置时，`@RequestScope`注解可以用来将组件分配为`request`的作用域。下面的例子就是这么做的：
+
+```
+@RequestScope
+@Component
+public class LoginAction {
+    // ...
+}
+```
+
+**Session作用域**
+思考下面定义bean的XML配置：
+```
+<bean id="userPreferences" class="com.something.UserPreferences" scope="session"/>
+```
+
+Spring容器对于在单个HTTP `Session`的生命周期内，通过`userPreferences`bean定义创建一个新的实例。换句话说，`userPreferences`bean的有效作用于实在HTTP `Session`级别。与request作用于的bean一样，用户可以在实例被创建后改变内部状态，其他HTTP `Session`实例在使用`userPreferences`bean定义创建实例时，看不到这些状态的变化，因为他们是对于单个HTTP `Session`的。当HTTP `Session`最终被丢弃，这个bean也会被丢弃。
+
+当使用注解驱动组件或者Java配置时，可以使用`@SessionScope`注解来讲组件的作用域定义为`session`级别。
+
+```
+@SessionScope
+@Component
+public class UserPreferences {
+    // ...
+}
+```
+
+**Application作用域**
+思考下面定义bean的XML配置：
+```
+<bean id="appPreferences" class="com.something.AppPreferences" scope="application"/>
+```
+
+Spring容器在一个web应用程序中，通过`appPreferences`bean定义创建一个新的`AppPreferences`实例。这个实例的范围是`ServletContext`级别的，并且被存储到`ServletContext`属性中。这在某些地方和Spring的单例bean相似，但是有两个重要的不同：它对每个`ServletContext`是单例，而不是对Spring的`ApplicationContext`（在给定的Web应用程序中可能有多个），并且它是公开的，因此作为`ServletContext`属性。
+
+当使用基于注解驱动的组件或者Java配置时，可以使用`ApplicationScope`注解来分配组件的作用域为`application`。下面的例子就是这样做的：
+
+```
+@ApplicationScope
+@Component
+public class AppPreferences {
+    // ...
+}
+```
+
+**有作用域的bean作为依赖**
+
+Spring IoC容器不仅管理者对象的实例化，而且会装配协作者（或者依赖）。如果想注入（像例子一样）的一个HTTP request作用域的bean注入到另一个作用域范围更长的bean中，可能选择注入一个作用域的AOP代理。也就是说，需要注入一个代理对象，和作用域bean一样，暴露相同的公共接口，但是可以从相关作用域获得目标对象，并且用委托方法调用真实对象。
+
+*也可以在单例bean之间，使用`<aop:scoped-proxy/>`，然后，通过引用中间代理序列化，因此在反序列化时可以重新获取目标单例bean*
+
+*针对`prototype`作用域的bean声明`<aop:scoped-proxy/>`时，共享代理的每个方法调用都会导致创建新的目标实例，然后将该调用转发到目标实例。*
+
+同样，作用域的代理不是以安全生命周期的方式从较短的作用域方位bean的唯一方法。用户也可以声明注入点（也就是说，构造函数或者setter方法参数或者自动装配字段），声明为`ObjectFactory<MyTargetBean>`，允许在每次需要时，调用`getObject()`来获取当前实例，无需持有这个实例或者单独存储它。
+
+作为扩展的变体，可能会声明`ObjectProvider<MyTargetBean>`，它提供了几个附加的访问变体，包括`getIfAvailable`和`getIfUnique`。
+
+这种JSR-330变体被称为`Provider`并且经常使用一个`Provider<MyTargetBean>`声明，通过调用`get()`来尝试获取对象。
+
+下面的配置只有一行，但是对于理解为什么和怎么做有重要的帮助：
+
+```
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns:aop="http://www.springframework.org/schema/aop"
+    xsi:schemaLocation="http://www.springframework.org/schema/beans
+        https://www.springframework.org/schema/beans/spring-beans.xsd
+        http://www.springframework.org/schema/aop
+        https://www.springframework.org/schema/aop/spring-aop.xsd">
+
+    <!-- an HTTP Session-scoped bean exposed as a proxy -->
+    <bean id="userPreferences" class="com.something.UserPreferences" scope="session">
+        <!-- instructs the container to proxy the surrounding bean -->
+        <aop:scoped-proxy/> 
+    </bean>
+
+    <!-- a singleton-scoped bean injected with a proxy to the above bean -->
+    <bean id="userService" class="com.something.SimpleUserService">
+        <!-- a reference to the proxied userPreferences bean -->
+        <property name="userPreferences" ref="userPreferences"/>
+    </bean>
+</beans>
+```
+
