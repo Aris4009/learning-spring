@@ -1317,7 +1317,7 @@ Spring IoC容器不仅管理者对象的实例化，而且会装配协作者（�
     <!-- an HTTP Session-scoped bean exposed as a proxy -->
     <bean id="userPreferences" class="com.something.UserPreferences" scope="session">
         <!-- instructs the container to proxy the surrounding bean -->
-        <aop:scoped-proxy/> 
+        <aop:scoped-proxy/> 【1】
     </bean>
 
     <!-- a singleton-scoped bean injected with a proxy to the above bean -->
@@ -1327,4 +1327,193 @@ Spring IoC容器不仅管理者对象的实例化，而且会装配协作者（�
     </bean>
 </beans>
 ```
+
+【1】这一行定义了代理
+
+为了创建一个代理，可以在bean定义中插入一个`<aop:scoped-proxy/>`子元素。为什么需要这么做？思考下面的单例bean定义并且和前面提到的做对比（注意，下面的`userPreferences`定义是不完整的）。
+
+```
+<bean id="userPreferences" class="com.something.UserPreferences" scope="session"/>
+
+<bean id="userManager" class="com.something.UserManager">
+    <property name="userPreferences" ref="userPreferences"/>
+</bean>
+```
+
+在前面的例子中，单例bean`userManager`注入了HTTP Session作用于的bean引用`userPreferences`。这里的重点是，`userManager`是一个单例：只能被每个容器初始化一次，并且他的依赖项（例子中只有一个，就是`userPreferences`）也只能被注入一次。这意味着`userManager`bean只能操作相同的`userPreferences`duixiang (也就是说，最初注入的那个对象)。
+
+当想要将短生命周期的bean注入到更长生命周期的bean中时，这不是用户希望的行为（例如，注入一个HTTP `Session`作用域的bean到单例bean中）。相反，用户只需要一个`userManager`对象，而且，在HTTP `Session`的生命周期内，需要一个HTTP `Session` 作用域的对象。因此，容器创建一个与`UserPreferences`类完全相同的接口（理想情况下，该对象是`UserPreferences`的实例），可以从作用域中获取实际的对象。容器向`userManager`注入一个代理对象，而后者不知道这是`UserPreferences`的一个代理。在这个例子中，当`UserManager`实例在`UserPreferences`对象上调用方法时，它实际上是在代理上调用方法。代理然后从HTTP `Session`作用域中
+获取真实的`UserPreferences`对象并且将方法委托到真实的`UserPreferences`对象上。
+
+因此，完整的配置如下：
+```
+<bean id="userPreferences" class="com.something.UserPreferences" scope="session">
+    <aop:scoped-proxy/>
+</bean>
+
+<bean id="userManager" class="com.something.UserManager">
+    <property name="userPreferences" ref="userPreferences"/>
+</bean>
+```
+
+[stackoverflow lookup-method vs scoped proxy](https://stackoverflow.com/questions/50057371/spring-lookup-method-and-scoped-proxy-usage)
+
+**Q:**I'm a bit confused about using method injection (lookup-method) and aop scoped-proxy (Since both used for different scoped beans injection) so
+
+1) When to use method injection and when to use aop-scoped proxy ? 2) What is the reason why a aop-scoped proxy will not be used for a prototype bean ?
+
+**A:**
+Both lookup method injection and scoped proxy are means to inject shorter lived beans into longer lived beans. However, they serve different use cases.
+
+Method injection is useful in cases where a singleton-scoped bean has a dependency on a prototype-scoped bean.
+
+A proxy gets injected in place of the desired bean and provides that bean depending on the context. For example, if a singleton bean (such as a Spring MVC controller) auto-wires a session scoped bean, then the proxy delivers that bean belonging to the current HTTP session.
+
+Such a proxy doesn't apply well to a situation where a prototype bean shall be obtained at runtime. Lookup method injection is one way to obtain prototype instances at runtime.
+
+However, method injection has limitations because it builds upon abstract methods. Hence, certain things like writing unit tests are more cumbersome, as you need to provide a stub implementation of the abstract method. Component scanning doesn't work with abstract classes either.
+
+One alternative to method injection is Spring's ObjectFactory, or its JSR equivalent Provider.
+
+Another, straightforward way of creating prototype bean instances at runtime (which even makes it possible to provide constructor arguments) is to implement a bean factory like the following:
+```
+@Configuration
+public class MyProvider {
+
+    @Bean
+    @Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
+    public MyThing create(String name) {
+        return new MyThing(name);
+    }
+
+}
+```
+
+Usage:
+```
+@Component
+public class MySingleton {
+
+    @Autowired
+    private MyProvider myProvider;
+
+    public void doStuffThatNeedsAPrototypeBeanInstance() {
+        MyThing thing = myProvider.create("some name");
+        ...
+    }
+}
+```
+
+**选择创建代理的类型**
+
+默认情况下，当Spring容器使用<aop:scoped-proxy/>元素创建代理时，将创建基于CGLIB的代理。
+
+*CGLIB代理仅拦截public方法！不要在代理中调用非public方法。他们没有呗委派给实际的作用域目标对象。*
+
+另一种方案是，创建基于JDK接口的代理，需要通过将`proxy-target-class`的属性设置为`false`。使用基于JDK接口的代理，意味着不需要在应用的classpath中添加附加的库。然而，这也意味着作用域bean必须至少实现一个接口并且所有与该bean的协作者必须通过接口来引用该bean。下面的例子展示了基于接口的代理：
+```
+<!-- DefaultUserPreferences implements the UserPreferences interface -->
+<bean id="userPreferences" class="com.stuff.DefaultUserPreferences" scope="session">
+    <aop:scoped-proxy proxy-target-class="false"/>
+</bean>
+
+<bean id="userManager" class="com.stuff.UserManager">
+    <property name="userPreferences" ref="userPreferences"/>
+</bean>
+```
+
+### 1.5.5 自定义作用域
+
+bean作用域的机制是可扩展的。用户可以定义自己的作用域或者重新定义已经存在的作用域。尽管后者被认为是不好的做法，并且不能覆盖内置的`singleton`和`prototype`作用域。
+
+**创建自定义作用域**
+
+在Spring容器中要集成自定义作用域，需要实现`org.springframework.beans.factory.config.Scope`接口，这个接口将在本章中进行描述。对于如何实现自定义作用域，可以参考Spring框架自身的`Scope`实现和`Scope`文档，这些会更详细的解释需要实现的方法。
+
+`Scope`接口有4个方法来从作用域中获取对象，从作用域中删除他们并且让他们销毁。
+
+session作用域实现，例如，返回session-scoped的bean（如果它不存在，将它绑定到session来提供引用后，返回一个新的实例对象。）下面的方法从作用域返回对象:
+```
+Object get(String name, ObjectFactory<?> objectFactory)
+```
+
+session作用于的实现，例如，从会话中删除作用域bean。必须返回对象，如果没有找到指定名称的对象，也可以返回`null`。下面的例子展示 如何删除对象：
+```
+Object remove(String name)
+```
+
+下面的方法注册了一个回调方法，当他被销毁或者指定的作用域被销毁，应该调用这个方法：
+```
+void registerDestructionCallback(String name, Runnable destructionCallback)
+```
+关于销毁回调方法的细节，可以参阅Spring 作用于的实现文档。
+
+下面的方法是用来获取作用于标识符：
+```
+String getConversationId()
+```
+对每个作用于来说，标识符都是不同的。对于一个session作用域的实现，这个标识符是session标识符。
+
+**使用自定义作用域**
+
+在编写和测试一个或者多个自定义`Scope`实现后，需要让Spring容器发现新定义的作用域。下面的方法展示了在Spring容器中，注册一个新的作用域：
+```
+void registerScope(String scopeName, Scope scope);
+```
+
+这个方法在`ConfigurableBeanFactory`接口中被声明，通过Spring中大多数ApplicationContext的具体实现，利用`BeanFactory`获得该属性。
+
+这个方法中的第一个参数，是关联作用域的唯一名称。例如，像Spring容器中本身自带的`singleton`和`prototype`。第二个参数，是自定义作用域的`Scope`的实现。
+
+假设已经有了自定义作用域的实现，然后接下来的例子展示了注册的步骤。
+
+*下面的例子使用`SimpleThreadScope`，这个类包含在Spring中但是没有被默认注册。对于自定义范围的实现，方法是相同的。*
+
+```
+Scope threadScope = new SimpleThreadScope();
+beanFactory.registerScope("thread", threadScope);
+```
+
+然后，创建一个具体的bean定义：
+```
+<bean id="..." class="..." scope="thread">
+```
+
+使用自定义范围实现，可以不仅仅局限于以编程方式注册范围。也可以使用`CustomScopeConfigurer`类以声明的方式进行注册，例如：
+
+```
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns:aop="http://www.springframework.org/schema/aop"
+    xsi:schemaLocation="http://www.springframework.org/schema/beans
+        https://www.springframework.org/schema/beans/spring-beans.xsd
+        http://www.springframework.org/schema/aop
+        https://www.springframework.org/schema/aop/spring-aop.xsd">
+
+    <bean class="org.springframework.beans.factory.config.CustomScopeConfigurer">
+        <property name="scopes">
+            <map>
+                <entry key="thread">
+                    <bean class="org.springframework.context.support.SimpleThreadScope"/>
+                </entry>
+            </map>
+        </property>
+    </bean>
+
+    <bean id="thing2" class="x.y.Thing2" scope="thread">
+        <property name="name" value="Rick"/>
+        <aop:scoped-proxy/>
+    </bean>
+
+    <bean id="thing1" class="x.y.Thing1">
+        <property name="thing2" ref="thing2"/>
+    </bean>
+
+</beans>
+```
+
+当把<aop:scpoed-proxy/>放置在`FactoryBean`的实现中时，作用于是工厂bean本身，而不是`getObject()`返回的对象。
+
+### 
 
