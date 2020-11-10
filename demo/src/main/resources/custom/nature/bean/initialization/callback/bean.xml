@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd">
+    <bean id="bean" class="com.example.demo.custom.nature.bean.initialization.callback.InitMethodBean"
+          init-method="init"></bean>
+    <bean id="initializingBeanImpl"
+          class="com.example.demo.custom.nature.bean.initialization.callback.InitializingBeanImpl"></bean>
+    <bean id="destructBean" class="com.example.demo.custom.nature.bean.destruction.callback.DestructionBean"
+          destroy-method="destroy"></bean>
+    <bean id="disposableBeanImpl"
+          class="com.example.demo.custom.nature.bean.destruction.callback.DisposableBeanImpl"></bean>
+</beans>

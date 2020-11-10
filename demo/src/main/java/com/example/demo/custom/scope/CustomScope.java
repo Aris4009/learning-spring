@@ -1,7 +1,12 @@
 package com.example.demo.custom.scope;
 
+import java.util.List;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.BeansException;
+import org.springframework.beans.factory.config.BeanFactoryPostProcessor;
+import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
 import org.springframework.beans.factory.config.Scope;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 import org.springframework.context.support.SimpleThreadScope;
@@ -22,7 +27,14 @@ public class CustomScope {
 		String path = "classpath:custom/scope/customScope.xml";
 		ClassPathXmlApplicationContext context = new ClassPathXmlApplicationContext(path);
 		Scope scope = new SimpleThreadScope();
-		context.getBeanFactory().registerScope("custom", scope);
+//		context.getBeanFactory().registerScope("custom", scope);
+		List<BeanFactoryPostProcessor> beanFactoryPostProcessor = context.getBeanFactoryPostProcessors();
+		beanFactoryPostProcessor.add(new BeanFactoryPostProcessor() {
+			@Override
+			public void postProcessBeanFactory(ConfigurableListableBeanFactory beanFactory) throws BeansException {
+				beanFactory.registerScope("custom", scope);
+			}
+		});
 		for (int i = 0; i < 2; i++) {
 			Thread thread = new Thread(new Runnable() {
 				@Override
