@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd">
+    <bean id="appCtxImpl" class="com.example.demo.custom.nature.bean.aware.ApplicationCtxAwareImpl"/>
+    <bean id="refByConstruct" class="com.example.demo.custom.nature.bean.aware.RefByConstruct"
+          autowire="constructor"/>
+    <bean id="refBySetter" class="com.example.demo.custom.nature.bean.aware.RefBySetter" autowire="byType"/>
+    <bean id="tt" name="fff" class="com.example.demo.custom.nature.bean.aware.BeanNameAwareImpl"/>
+</beans>
