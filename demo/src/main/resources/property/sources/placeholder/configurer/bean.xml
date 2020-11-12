@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+        http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context.xsd">
+
+    <!--    <bean class="org.springframework.context.support.PropertySourcesPlaceholderConfigurer">-->
+    <!--        <property name="locations">-->
+    <!--            <array>-->
+    <!--                <value>-->
+    <!--                    classpath:property/sources/placeholder/configurer/p1.properties-->
+    <!--                </value>-->
+    <!--                <value>-->
+    <!--                    classpath:property/sources/placeholder/configurer/p2.properties-->
+    <!--                </value>-->
+    <!--            </array>-->
+    <!--        </property>-->
+    <!--        <property name="properties">-->
+    <!--            <value>-->
+    <!--                p3 = p3-->
+    <!--            </value>-->
+    <!--        </property>-->
+    <!--    </bean>-->
+
+    <!-- 该标签与上面的PropertySourcesPlaceholderConfigurer只能存在一个-->
+    <context:property-placeholder location="classpath:property/sources/placeholder/configurer/p4.properties"/>
+
+    <bean id="bean"
+          class="com.example.demo.property.sources.placeholder.configurer.PropertySourcePlaceholderConfigurerExample">
+        <!--        <property name="p1" value="${p1}"/>-->
+        <!--        <property name="p2" value="${p2}"/>-->
+        <!--        <property name="p3" value="${p3}"/>-->
+        <property name="p4" value="${p4}"/>
+    </bean>
+</beans>
