@@ -2224,3 +2224,90 @@ public class MovieRecommender {
     // ...
 }
 ```
+
+*如果想要让数组或者列表条目按特定顺序定义，那么目标bean可以实现接口`org.springframework.core.Ordered或使用`@Order`或`@Priority`注解`。否则，他们的顺序将遵循容器中相应目标bean定义的注册顺序。*
+
+*可以在目标类级别上和`@Bean`方法上声明`@Order`注解。`@Order`值可能会影响注入点的优先级，但是注意，他们不会影响单例启动顺序，这是由依赖关系和`@DepandsOn`声明确定的。*
+
+*注意，在`@Bean`级别上，标准的`javax.annotation.Priority`是不可用的，因为他不能在方法上声明。它的语义可以通过`@Order`值与`@Primary`结合在美中单例bean上进行建模。*
+
+只要期望的key的类型是`String`，即使是类型化的`Map`实例也可以自动装配。这个Map包含了所有希望的bean类型，并且key包含的bean的名称，如下所示：
+```
+public class MovieRecommender {
+    private Map<String, MovieCatalog> movieCatalogs;
+
+    @Autowired
+    public void setMovieCatalogs(Map<String, MovieCatalog> movieCatalogs) {
+        this.movieCatalogs = movieCatalogs;
+    }
+
+    // ...
+}
+```
+
+默认情况下，当没有匹配到可用的候选bean时，自动装配将会失败。对于声明的数组、集合或映射，至少应有一个匹配元素。
+
+对于注解方法和字段，默认的依赖是必须的。可以像下面的例子一样更改这种行为，通过将框架标记为非必须的注入点(即通过将`@Autowired`中的`required`属性设置为`false`)，使框架可以跳过不满足要求的注入点：
+
+```
+public class SimpleMovieLister {
+
+    private MovieFinder movieFinder;
+
+    @Autowired(required = false)
+    public void setMovieFinder(MovieFinder movieFinder) {
+        this.movieFinder = movieFinder;
+    }
+
+    // ...
+}
+```
+
+如果不需要的方法不可用（或在多个参数的情况下，其中一个依赖项）不可用，则根本不会调用这个方法。在这种情况下，完全不需要填充非必须字段，而将其默认值保留在适当的位置。
+
+注入构造函数和工厂方法的参数是特殊的例子，由于Spring构造函数解析算法可能会处理多个构造函数，因此`@Autowired`中的`required`属性的含义有些不同。默认情况下，构造函数和工厂方法参数的reqired是有效的，但是在单构造函数场景中有一些特殊规则，例如，如果没有可匹配的bean，则多元素注入点(数组，集合、映射)解析为空实例。这允许一种通用的实现模式，其中所有依赖项都可以在唯一的多参数构造函数中声明，例如，声明为不带`@Autowired`注解的单个公共构造函数。
+
+*任何给定bean类只有一个构造函数能声明为`@Autowired`并且属性`reqiured`属性为`true`，这指示了Spring在自动装配bean时的构造函数。因此，如果`required`属性保留为默认值`true`，则`@Autowired`只能注释单个构造函数。如果多个构造函数声明注解，为了考虑自动装配的候选者，需要声明`required=false`（在XML中，类似的声明为`autowired=construct`）。将选择通过匹配Spring容器中的bean可以满足的依赖项数量最多的构造函数。如果没有一个候选者满意，则将使用主/默认构造函数（如果存在）。同样，如果一个类声明了多个构造函数，但都没有使用@Autowired进行注释，则将使用主/默认构造函数（如果存在）。如果一个类仅声明一个单一的构造函数开始，即使没有注释，也将始终使用它。请注意，带注释的构造函数不必是公共的。*
+
+*建议在setter方法上使用@Autowired的required属性，而不推荐使用已弃用的@Required批注。将required属性设置为false表示该属性对于自动装配不是必需的，并且如果无法自动装配，则将忽略该属性。另一方面，@Required更为强大，因为它可以通过容器支持的任何方式强制设置属性，并且如果未定义任何值，则会引发相应的异常。*
+
+另外，您可以通过Java 8的`java.util.Optional`表示特定依赖项的非必需性质，如以下示例所示:
+
+```
+public class SimpleMovieLister {
+
+    @Autowired
+    public void setMovieFinder(Optional<MovieFinder> movieFinder) {
+        ...
+    }
+}
+```
+
+Spring5.0以后，可以使用`@Nullable`注解(在任何包中为任何形式，例如JSR-305中的`javax.annotation.Nullable`)或仅利用Kotlin内置的null安全支持：
+
+```
+public class SimpleMovieLister {
+
+    @Autowired
+    public void setMovieFinder(@Nullable MovieFinder movieFinder) {
+        ...
+    }
+}
+```
+
+还可以将`@Autowired`用于接口：
+`BeanFactory`, `ApplicationContext`, `Environment`, `ResourceLoader`,`ApplicationEventPublisher`,`MessageSource`。这些接口和他们的扩展接口，例如：`ConfigurableApplicationContext`或者`ResourcePatternResolver`会自动被解析，不需要特别的设置。下面的例子自动装配了`ApplicationContext`对象：
+```
+public class MovieRecommender {
+
+    @Autowired
+    private ApplicationContext context;
+
+    public MovieRecommender() {
+    }
+
+    // ...
+}
+```
+
+*`@Autowired`,`@Inject`，`@Value`和`@Resource`注解由`BeanPostProcessor`操纵实现。这意味着不能把这些注解应用到任何`BeanPostProcessor`或`BeanFactoryPostProcessor`类型上。这些类型必须通过XML或者`@Bean`方法装配。*
