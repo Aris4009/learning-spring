@@ -2311,3 +2311,61 @@ public class MovieRecommender {
 ```
 
 *`@Autowired`,`@Inject`，`@Value`和`@Resource`注解由`BeanPostProcessor`操纵实现。这意味着不能把这些注解应用到任何`BeanPostProcessor`或`BeanFactoryPostProcessor`类型上。这些类型必须通过XML或者`@Bean`方法装配。*
+
+### 1.9.3 通过微调的自动装配`@Primary`
+
+由于通过类型来自动装配会导致多个候选者，通常需要更多地控制选择流程。一种途径是使用Spring的`@Primary`注解。当有多个候选的需要备注的bean时，`@Primary`指明了所需要的特定引用。如果候选中恰好存在一个主要的bean，则它将成为自动装配的值。
+
+思考下面被定义为`firstMovieCatalog`的`MovieCatalog`：
+
+```
+@Configuration
+public class MovieConfiguration {
+
+    @Bean
+    @Primary
+    public MovieCatalog firstMovieCatalog() { ... }
+
+    @Bean
+    public MovieCatalog secondMovieCatalog() { ... }
+
+    // ...
+}
+```
+
+下面的`MovieRecommender`将自动装配`firstMovieCatalog`：
+```
+public class MovieRecommender {
+
+    @Autowired
+    private MovieCatalog movieCatalog;
+
+    // ...
+}
+```
+
+在XML中，相应的bean定义如下：
+```
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns:context="http://www.springframework.org/schema/context"
+    xsi:schemaLocation="http://www.springframework.org/schema/beans
+        https://www.springframework.org/schema/beans/spring-beans.xsd
+        http://www.springframework.org/schema/context
+        https://www.springframework.org/schema/context/spring-context.xsd">
+
+    <context:annotation-config/>
+
+    <bean class="example.SimpleMovieCatalog" primary="true">
+        <!-- inject any dependencies required by this bean -->
+    </bean>
+
+    <bean class="example.SimpleMovieCatalog">
+        <!-- inject any dependencies required by this bean -->
+    </bean>
+
+    <bean id="movieRecommender" class="example.MovieRecommender"/>
+
+</beans>
+```

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd">
+
+    <bean id="first" class="com.example.demo.autowired.primary.MovieCatalog" primary="true">
+        <constructor-arg name="name" value="first"/>
+    </bean>
+
+    <bean class="com.example.demo.autowired.primary.MovieCatalog">
+        <constructor-arg name="name" value="second"/>
+    </bean>
+
+    <bean id="movieRecommender" class="com.example.demo.autowired.primary.MovieRecommender">
+        <constructor-arg name="movieCatalog" ref="first"/>
+    </bean>
+</beans>
