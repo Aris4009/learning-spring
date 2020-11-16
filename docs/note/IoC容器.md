@@ -2369,3 +2369,261 @@ public class MovieRecommender {
 
 </beans>
 ```
+
+### 1.9.3 通过微调的自动装配`@Qualifier`
+
+当一个主要的候选者被决定时，`@Primary`对于多个需要通过类型来装配的实例来说是一种有效的途径。当需要更多的控制选择流程时，可以使用`@Qualifire`注解。可以使用特定的参数来分配限定值，缩小匹配类型的范围以便为每个参数选择指定的bean。在最简单的情况下，这可以是简单的描述性的值：
+```
+public class MovieRecommender {
+
+    @Autowired
+    @Qualifier("main")
+    private MovieCatalog movieCatalog;
+
+    // ...
+}
+```
+
+也可以将`@Qualifier`注解放置在单独的构造函数或方法参数上，像下面的例子:
+public class MovieRecommender {
+
+    private MovieCatalog movieCatalog;
+
+    private CustomerPreferenceDao customerPreferenceDao;
+
+    @Autowired
+    public void prepare(@Qualifier("main") MovieCatalog movieCatalog,
+            CustomerPreferenceDao customerPreferenceDao) {
+        this.movieCatalog = movieCatalog;
+        this.customerPreferenceDao = customerPreferenceDao;
+    }
+
+    // ...
+}
+
+XML的相同配置的例子：
+```
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns:context="http://www.springframework.org/schema/context"
+    xsi:schemaLocation="http://www.springframework.org/schema/beans
+        https://www.springframework.org/schema/beans/spring-beans.xsd
+        http://www.springframework.org/schema/context
+        https://www.springframework.org/schema/context/spring-context.xsd">
+
+    <context:annotation-config/>
+
+    <bean class="example.SimpleMovieCatalog">
+        <qualifier value="main"/> 1
+
+        <!-- inject any dependencies required by this bean -->
+    </bean>
+
+    <bean class="example.SimpleMovieCatalog">
+        <qualifier value="action"/> 2
+
+        <!-- inject any dependencies required by this bean -->
+    </bean>
+
+    <bean id="movieRecommender" class="example.MovieRecommender"/>
+
+</beans>
+```
+
+对于候选的匹配，bean名称被视为默认的限定值。因此，可以将bean的id定义为main来代替嵌套的qualifier元素，从而得到相同的匹配结果。但是，尽管可以使用此约定名称引用特定的bean，`@Autowired`基本上是关于带有可选语义限定符的类型驱动的注入。这意味着，即使带有bean名称后退的限定值，在类型匹配中也始终具有更小的语义。
+他们没有在语义上表示对唯一bean id的引用。好的限定值是`main`或`EMEA`或`persistent`,表示独立于bean id的特定组件的特征，如果是匿名bean定义（例如前面示例中的定义），则可以自动生成该属性。
+
+限定符同样也可以应用到集合框架，像之前讨论的-例如，对于`Set<MovieCatalog>`。在这个例子中，所有匹配的bean，通过声明限定符，作为集合被注入。这表名限定符不需要是唯一的。相反，他们构成了过滤条件。例如，可以定义多个`MovieCatalog`bean拥有相同的限定值`action`，所有这些都注入到以`@Qualifier("action")`注释的`Set<MovieCatalog>`中。
+
+*在类型匹配的候选对象中，让限定符值根据目标bean名称进行选择。如果没有其他的解析指示器（例如限定符标记或者primary标记），对于一个非唯一依赖的情景，Spring将注入点名称（即字段名称或参数名称）与目标bean名称进行匹配，然后选择同名候选人（如果有）。*
+
+也就是说，如果打算按照名称表示注解驱动的注入，不要使用`@Autowired`，即使能够在类型匹配的候选对象中按bean名称进行选择。而是使用JSR-250的`@Resource`注解，这个注解的语义是通过其唯一名称来标识特定目标组件，而声明的类型与匹配过程无关。`@Autowired`具有非常不同的语义：在通过类型选择候选bean后，指定的String限定值仅在哪些类型选择的候选中被考虑（例如，将`account`限定值与相同限定符标签的bean进行匹配）。
+
+对于那些被定义为即可的bean，`Map`或者数组类型，`@Resource`是一个好的解决方案，它通过唯一的名称引用特定的集合或数组。这就是说，在4.3以后，还可以通过`@Autowired`类型匹配算法来匹配`Map`和数组类型，只要元素类型信息保留在`@Bean`返回类型签名或集合继承层次结构中。在这个例子中，可以使用限定值来选择相同类型的集合框架，像前面章节列出的一样。
+
+在4.3以后，`@Autowired`也考虑自我引用进行注入（也就是说，引用回当前注入的bean）。注意，自我注入是一个后备。对其他组件的常规依赖始终优先。从这个意义上来说，自我引用不参与常规候选人选择，因此尤其不是主要的。反过来，他们总是以最低优先级结束。实际上，应该仅将自我引用作为最后的手段（例如，通过bean的事务代理，在同一实例上调用其他方法）。在这种情况下，请考虑将受影响的方法分解为单独的委托bean。 或者，您可以使用@Resource，它可以通过其唯一名称获取返回到当前bean的代理。
+
+*尝试在相同的配置类中，将`@Bean`方法返回的结果注入，实际上是一种自引用方案。要么在实际需要的方法签名中延迟解析此类引用（与配置类中的自动装配字段相对），要么将受影响的@Bean方法声明为静态，将其与包含的配置类实例及声明周期解藕。否则，仅在回退阶段考虑此类bean，而将其他配置类上的匹配bean标记为主要候选对象（如果可用）。*
+
+`@Autowired`可以应用在字段、构造器、多参数方法中，在参数级别上使用限定注解来缩小范围。相反，`@Resource`只支持字段级别和只有一个参数的setter方法。因此，如果注入目标是构造函数或多参数方法，则应坚持使用限定符。
+
+可以自定义限定符注解。如下：
+```
+@Target({ElementType.FIELD, ElementType.PARAMETER})
+@Retention(RetentionPolicy.RUNTIME)
+@Qualifier
+public @interface Genre {
+
+    String value();
+}
+```
+
+然后，可以在自动装配的字段或参数上使用该限定符：
+```
+public class MovieRecommender {
+
+    @Autowired
+    @Genre("Action")
+    private MovieCatalog actionCatalog;
+
+    private MovieCatalog comedyCatalog;
+
+    @Autowired
+    public void setComedyCatalog(@Genre("Comedy") MovieCatalog comedyCatalog) {
+        this.comedyCatalog = comedyCatalog;
+    }
+
+    // ...
+}
+```
+接下来，可以提供bean定义的信息。可以在<bean/>标签中增加<qualifier/>子标签然后定义匹配自定义限定符的`type`和`value`。该类型与注释的全限定类名匹配。另外，如果没有名字冲突的风险，可以使用简短的类名。
+```
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns:context="http://www.springframework.org/schema/context"
+    xsi:schemaLocation="http://www.springframework.org/schema/beans
+        https://www.springframework.org/schema/beans/spring-beans.xsd
+        http://www.springframework.org/schema/context
+        https://www.springframework.org/schema/context/spring-context.xsd">
+
+    <context:annotation-config/>
+
+    <bean class="example.SimpleMovieCatalog">
+        <qualifier type="Genre" value="Action"/>
+        <!-- inject any dependencies required by this bean -->
+    </bean>
+
+    <bean class="example.SimpleMovieCatalog">
+        <qualifier type="example.Genre" value="Comedy"/>
+        <!-- inject any dependencies required by this bean -->
+    </bean>
+
+    <bean id="movieRecommender" class="example.MovieRecommender"/>
+
+</beans>
+```
+
+在类路径扫描和组件管理中，可以查看在XML中提供限定元数据的另一种方案。
+
+在某些情况下，不带value的注解可能就足够了。当注解服务于一个更通用的目的并且应用跨类型的依赖时，这非常有用。例如，，当互联网链接不可用时可能提供一个离线的目录。首先，定义一个简单的注解，像下面一样：
+
+```
+@Target({ElementType.FIELD, ElementType.PARAMETER})
+@Retention(RetentionPolicy.RUNTIME)
+@Qualifier
+public @interface Offline {
+
+}
+```
+
+在自动装配的字段或属性上增加注解：
+```
+public class MovieRecommender {
+
+    @Autowired
+    @Offline 
+    private MovieCatalog offlineCatalog;
+
+    // ...
+}
+```
+
+现在，只需要定义限定符类型：
+```
+<bean class="example.SimpleMovieCatalog">
+    <qualifier type="Offline"/> 
+    <!-- inject any dependencies required by this bean -->
+</bean>
+```
+
+Offline这个元素被指定为限定符。
+
+自定义限定符接受除了简单值属性之外的代替属性。如果多个属性值被定义在一个字段或者参数上，bean定义必须与此类属性值匹配，才能成为自动装配的候选。例如：
+```
+@Target({ElementType.FIELD, ElementType.PARAMETER})
+@Retention(RetentionPolicy.RUNTIME)
+@Qualifier
+public @interface MovieQualifier {
+
+    String genre();
+
+    Format format();
+}
+```
+
+在这个例子中，`Format`是一个枚举类：
+```
+public enum Format {
+    VHS, DVD, BLURAY
+}
+```
+
+这个类通过自定义限定符自动装配并且包含的属性有：`genre`和`format`：
+```
+public class MovieRecommender {
+
+    @Autowired
+    @MovieQualifier(format=Format.VHS, genre="Action")
+    private MovieCatalog actionVhsCatalog;
+
+    @Autowired
+    @MovieQualifier(format=Format.VHS, genre="Comedy")
+    private MovieCatalog comedyVhsCatalog;
+
+    @Autowired
+    @MovieQualifier(format=Format.DVD, genre="Action")
+    private MovieCatalog actionDvdCatalog;
+
+    @Autowired
+    @MovieQualifier(format=Format.BLURAY, genre="Comedy")
+    private MovieCatalog comedyBluRayCatalog;
+
+    // ...
+}
+```
+
+最终，bean定义应该包含匹配的限定值。这个例子表名可以定义bean元数据属性来代替<qualifier/>元素。如果有的话，<qualifier/>元素及其属性有限，但是，如果没有这样的限定符，自动装配机制就会回退到<meta/>标记中提供的值。
+```
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns:context="http://www.springframework.org/schema/context"
+    xsi:schemaLocation="http://www.springframework.org/schema/beans
+        https://www.springframework.org/schema/beans/spring-beans.xsd
+        http://www.springframework.org/schema/context
+        https://www.springframework.org/schema/context/spring-context.xsd">
+
+    <context:annotation-config/>
+
+    <bean class="example.SimpleMovieCatalog">
+        <qualifier type="MovieQualifier">
+            <attribute key="format" value="VHS"/>
+            <attribute key="genre" value="Action"/>
+        </qualifier>
+        <!-- inject any dependencies required by this bean -->
+    </bean>
+
+    <bean class="example.SimpleMovieCatalog">
+        <qualifier type="MovieQualifier">
+            <attribute key="format" value="VHS"/>
+            <attribute key="genre" value="Comedy"/>
+        </qualifier>
+        <!-- inject any dependencies required by this bean -->
+    </bean>
+
+    <bean class="example.SimpleMovieCatalog">
+        <meta key="format" value="DVD"/>
+        <meta key="genre" value="Action"/>
+        <!-- inject any dependencies required by this bean -->
+    </bean>
+
+    <bean class="example.SimpleMovieCatalog">
+        <meta key="format" value="BLURAY"/>
+        <meta key="genre" value="Comedy"/>
+        <!-- inject any dependencies required by this bean -->
+    </bean>
+
+</beans>
+```
