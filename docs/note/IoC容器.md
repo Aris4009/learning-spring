@@ -2841,3 +2841,26 @@ public class MovieRecommender {
     }
 }
 ```
+
+### 1.9.9. 使用`@PostConstruct`和`@PreDestroy`
+
+`CommonAnnotationBeanPostProcessor`不仅可以识别`@Resource`注解，而且可以识别JSR-250声明周期的注解:`javax.annotation.PostConstruct`和`javax.annotation.PreDestroy`。在Spring2.5以后引入，用来支持描述声明周期的回调机制，提供初始化回调和销毁回调。在下面的例子中，缓存在初始化时被预先填充，并在销毁时清除：
+```
+public class CachingMovieLister {
+
+    @PostConstruct
+    public void populateMovieCache() {
+        // populates the movie cache upon initialization...
+    }
+
+    @PreDestroy
+    public void clearMovieCache() {
+        // clears the movie cache upon destruction...
+    }
+}
+```
+
+有关组合各种生命周期机制的效果的详细信息，请参考Combining Lifecycle Mechanisms。
+
+*像`@Resource`，`@PostConstruct`，`@PreDestroy`这几个注解类型，是JDK6-8中的标准Java库的一部分。但是，整个`javax.annotation`包在JDK9中的核心Java模块被分离，并最终在JDK11中删除。如果需要通过Maven
+获取`javax.annotation-api`，只需要像其他任和库一样将其添加到应用程序的类路径即可。*
