@@ -2627,3 +2627,217 @@ public class MovieRecommender {
 
 </beans>
 ```
+
+### 1.9.5. 使用泛型作为自动装配限定符
+
+除了`@Qualifier`注解，还可以使用Java泛型作为限定的隐含形式。例如，假如有如下的配置：
+```
+@Configuration
+public class MyConfiguration {
+
+    @Bean
+    public StringStore stringStore() {
+        return new StringStore();
+    }
+
+    @Bean
+    public IntegerStore integerStore() {
+        return new IntegerStore();
+    }
+}
+```
+
+假设前面的bean实现了泛型接口，（也就是说实现了`Store<String>`和`Store<Integer>`），那么就可以使用`@Autowired`、接口`Store`和泛型作为限定：
+```
+@Autowired
+private Store<String> s1; // <String> qualifier, injects the stringStore bean
+
+@Autowired
+private Store<Integer> s2; // <Integer> qualifier, injects the integerStore bean
+```
+
+泛型限定也支持装配list,`Map`实例和数组：
+```
+// Inject all Store beans as long as they have an <Integer> generic
+// Store<String> beans will not appear in this list
+@Autowired
+private List<Store<Integer>> ;
+```
+
+### 1.9.6 使用`CustomAutowireConfigurer`
+
+`CustomAutowireConfigurer`是一个`BeanFactoryPostProcessor`，它可以注册自定义的限定符注解类型，即使它们没有被Spring的`@Qualifier`注释。下面的例子展示了如何使用`CustomAutowireConfigurer`：
+
+```
+<bean id="customAutowireConfigurer"
+        class="org.springframework.beans.factory.annotation.CustomAutowireConfigurer">
+    <property name="customQualifierTypes">
+        <set>
+            <value>example.CustomQualifier</value>
+        </set>
+    </property>
+</bean>
+```
+
+`AutowireCandidateResolver`通过下面的方式来决定自动装配的候选者：
+* 每个bean定义的`autowire-candidate`的值
+* 任何在`<beans/>`元素应以的可用`default-autowire-candidates`
+* 存在的`@Qualifier`注解和任何注册到`CustomAutowireConfigurer`的自定义注解
+
+当多个bean限定作为自动装配的候选者，决定是一个主要的候选者的情况如下：如果在多个候选者中，有一个明确的bean定义并且他的`primary`属性是`true`，它就会被选择。
+
+### 1.9.7 `@Resource`注入
+
+Spring也支持使用JSR-250的`@Resource`(`javax.annotation.Resource`),可以注解到字段或者属性的setter方法上。这是一个Java EE的通用模式，例如，在JSF-mananged beans和JAX-WS endpoints。Spring对这种模式也支持的很好。
+
+`@Resource`有一个name的属性。默认情况下，Spring拦截这个值并注入。有通过名字来注入点语义。
+```
+public class SimpleMovieLister {
+
+    private MovieFinder movieFinder;
+
+    @Resource(name="myMovieFinder") 
+    public void setMovieFinder(MovieFinder movieFinder) {
+        this.movieFinder = movieFinder;
+    }
+}
+```
+这里，通过`@Resource`注入了MovieFinder。
+
+如果没有明确的指定名称，默认的名称是来自字段的名字后者方法。如果是字段，它将会获取字段的名字，如果是一个setter方法，他会获取bean属性的名字。下面的例子会获取bean名字为`movieFinder`来作为setter方法的注入：
+```
+public class SimpleMovieLister {
+
+    private MovieFinder movieFinder;
+
+    @Resource
+    public void setMovieFinder(MovieFinder movieFinder) {
+        this.movieFinder = movieFinder;
+    }
+}
+```
+
+*注解提供的名字会被`ApplicationContext`中的`CommonAnnotationBeanPostProcessor`感知，并且作为bean名字来解析。如果明确的配置了Spring的`SimpleJndiBeanFactory`,名字将通过JNDI来解析。但是，建议依赖默认的行为并且使用Spring的JNDI的查找能力来保留间接级别。*
+
+在没有指定显示名称的情况下，使用`@Resource`的特殊情况，类似于`@Autowired`，`@Resource`查找主类型匹配，而不是特定的命名bean，并解析所有已知的可解析依赖：`BeanFactory`，`ApplicationContext`，`ResourceLoader`，`ApplicationEventPublisher`，`MessageSource`。
+
+因此，在下面的例子中，`customerPreferenceDao`字段首先查找一个名叫"customerPreferenceDao"的bean，然后返回可匹配`CustomerPreferenceDao`类型的主要类型。
+```
+public class MovieRecommender {
+
+    @Resource
+    private CustomerPreferenceDao customerPreferenceDao;
+
+    @Resource
+    private ApplicationContext context; 
+
+    public MovieRecommender() {
+    }
+
+    // ...
+}
+```
+`context`是已知的可解析的依赖类型：`ApplicationContext`。
+
+### 1.9.8. 使用`@Value`
+
+`@Value`通常被用来注入外部属性:
+
+```
+@Component
+public class MovieRecommender {
+
+    private final String catalog;
+
+    public MovieRecommender(@Value("${catalog.name}") String catalog) {
+        this.catalog = catalog;
+    }
+}
+```
+
+结合配置类使用：
+```
+@Configuration
+@PropertySource("classpath:application.properties")
+public class AppConfig { }
+```
+配置类文件：
+```
+catalog.name=MovieCatalog
+```
+
+在这个例子中，`catalog`参数和字段等于`MovieCatalog`的值。
+
+Spring提供一个默认的松散的内嵌值解析器。它将尝试解析属性值，如果无法解析，则将属性名称（例如：`${catalog.name}`）作为值注入。如果要严格控制不存在的值，应该声明一个`PropertySourcesPlaceholderConfigurer`:
+```
+@Configuration
+public class AppConfig {
+
+     @Bean
+     public static PropertySourcesPlaceholderConfigurer propertyPlaceholderConfigurer() {
+           return new PropertySourcesPlaceholderConfigurer();
+     }
+}
+```
+
+*当使用JavaConfig配置了一个`PropertySourcesPlaceholderConfigurer`时，`@Bean`方法必须是静态的*
+
+使用上面的配置，可以确保如果任何的`${}`占位符没有被解析，Spring初始化会失败。它支持自定义的占位符，可以使用方法`setPlaceholderPrefix`、`setPlaceholderSuffix`、`setValueSeparator`.
+
+*Spring Boot 默认了一个`PropertySourcesPlaceholderConfigurer`，可以从`application.properties`和`application.yml`文件中提取属性。*
+
+Spring提供内置的转换支持，允许简单类型自动转换（例如`Integer`或者`int`）。被逗号分割的值可以自动的转化为Spring
+数组不需要额外的处理。
+
+```
+@Component
+public class MovieRecommender {
+
+    private final String catalog;
+
+    public MovieRecommender(@Value("${catalog.name:defaultCatalog}") String catalog) {
+        this.catalog = catalog;
+    }
+}
+```
+
+Spring`BeanPostProcessor`在后台使用`ConversionService`，处理将`@Value`中的String值转换为目标类型的过程。如果想要提供自定义的类型转换支持，可以提供一个自定义的`ConversionService`实例：
+```
+@Configuration
+public class AppConfig {
+
+    @Bean
+    public ConversionService conversionService() {
+        DefaultFormattingConversionService conversionService = new DefaultFormattingConversionService();
+        conversionService.addConverter(new MyCustomConverter());
+        return conversionService;
+    }
+}
+```
+
+当`@Value`包含一个`SpEL`表达式，这个值将会在运行时自动计算：
+```
+@Component
+public class MovieRecommender {
+
+    private final String catalog;
+
+    public MovieRecommender(@Value("#{systemProperties['user.catalog'] + 'Catalog' }") String catalog) {
+        this.catalog = catalog;
+    }
+}
+```
+
+SpEL支持更复杂的数据结构:
+```
+@Component
+public class MovieRecommender {
+
+    private final Map<String, Integer> countOfMoviesPerCatalog;
+
+    public MovieRecommender(
+            @Value("#{{'Thriller': 100, 'Comedy': 300}}") Map<String, Integer> countOfMoviesPerCatalog) {
+        this.countOfMoviesPerCatalog = countOfMoviesPerCatalog;
+    }
+}
+```
