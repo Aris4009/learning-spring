@@ -3253,3 +3253,174 @@ public class CachingMovieCatalog implements MovieCatalog {
 生成过程将包含一个在jar文件中的`META-INF/spring.components`文件。
 
 当使用IDE在这种模式下工作时，`spring-context-indexer`必须作为注解处理器被注册，来确保候选组件更新时，索引是最新的。
+
+## 1.11. 使用JSR 330标准注解
+
+Spring3.0以后，提供了JSR-330标准注解的支持（依赖注入）。这些注解的扫描方式与Spring注释的扫描方式相同。为了使用他们，需要引入相关的jar到classpath。
+
+*如果使用Maven，这是[`javax.inject`仓库](https://repo1.maven.org/maven2/javax/inject/javax.inject/1/)，可以将下面的依赖加入到pom文件中：*
+```
+<dependency>
+    <groupId>javax.inject</groupId>
+    <artifactId>javax.inject</artifactId>
+    <version>1</version>
+</dependency>
+```
+
+### 1.11.1 使用`@Inject`和`@Named`来完成依赖注入
+
+可以使用`@javax.inject.Inject`来代替`@Autowired`:
+
+```
+import javax.inject.Inject;
+
+public class SimpleMovieLister {
+
+    private MovieFinder movieFinder;
+
+    @Inject
+    public void setMovieFinder(MovieFinder movieFinder) {
+        this.movieFinder = movieFinder;
+    }
+
+    public void listMovies() {
+        this.movieFinder.findMovies(...);
+        // ...
+    }
+}
+```
+
+和`@Autowired`一样，可以在字段级别、方法级别和构造器参数级别上使用`@Inject`。此外，可以将注入点作为`Provider`，从而允许按需访问范围较小的bean，或者通过Provider.get()调用来惰性访问其他bean:
+```
+import javax.inject.Inject;
+import javax.inject.Provider;
+
+public class SimpleMovieLister {
+
+    private Provider<MovieFinder> movieFinder;
+
+    @Inject
+    public void setMovieFinder(Provider<MovieFinder> movieFinder) {
+        this.movieFinder = movieFinder;
+    }
+
+    public void listMovies() {
+        this.movieFinder.get().findMovies(...);
+        // ...
+    }
+}
+```
+
+如果喜欢使用依赖限定符名，可以使用`@Named`注解：
+
+```
+import javax.inject.Inject;
+import javax.inject.Named;
+
+public class SimpleMovieLister {
+
+    private MovieFinder movieFinder;
+
+    @Inject
+    public void setMovieFinder(@Named("main") MovieFinder movieFinder) {
+        this.movieFinder = movieFinder;
+    }
+
+    // ...
+}
+```
+
+和`@Autowired`一样，`@Inject`也可以和`java.util.Optional`或`@Nullable`使用。在这里更加适用，因为`@Inject`没有`required`属性:
+
+```
+public class SimpleMovieLister {
+
+    @Inject
+    public void setMovieFinder(Optional<MovieFinder> movieFinder) {
+        // ...
+    }
+}
+```
+
+```
+public class SimpleMovieLister {
+
+    @Inject
+    public void setMovieFinder(@Nullable MovieFinder movieFinder) {
+        // ...
+    }
+}
+```
+
+### 1.11.2. `@Named`和`@ManagedBean`:和`@Component`等效的注解
+
+可以使用`@javax.inject.Named`或`javax.annotation.ManagedBean`来代替`@Component`：
+
+```
+import javax.inject.Inject;
+import javax.inject.Named;
+
+@Named("movieListener")  // @ManagedBean("movieListener") could be used as well
+public class SimpleMovieLister {
+
+    private MovieFinder movieFinder;
+
+    @Inject
+    public void setMovieFinder(MovieFinder movieFinder) {
+        this.movieFinder = movieFinder;
+    }
+
+    // ...
+}
+```
+
+在没有指定组件名称的情况下使用@Component是很常见的。类似的方式使用@Named，如以下示例所示：
+
+```
+import javax.inject.Inject;
+import javax.inject.Named;
+
+@Named
+public class SimpleMovieLister {
+
+    private MovieFinder movieFinder;
+
+    @Inject
+    public void setMovieFinder(MovieFinder movieFinder) {
+        this.movieFinder = movieFinder;
+    }
+
+    // ...
+}
+```
+
+当使用@Named或@ManagedBean时，可以使用与使用Spring注释完全相同的方式来使用组件扫描，如以下示例所示：
+
+```
+@Configuration
+@ComponentScan(basePackages = "org.example")
+public class AppConfig  {
+    // ...
+}
+```
+
+和`@Component`相反，JSR-330`@Named`和JSR-250`ManageBean`注解不能组合。应该使用Spring的刻板模型来构建自定义组件注解。
+
+### 1.11.3 JSR-330注解的限制
+
+当使用标准注解时，应该知道有一些重要的特性是不可用的，下面表格举例说明：
+
+Table 6. Spring component model elements versus JSR-330 variants 
+
+| Spring | javax.inject.* |javax.inject restrictions/comments |
+| ---- | ----- | ----- |
+| @Autowired|@Inject|@Inject has no 'required' attribute. Can be used with Java 8’s Optional instead.|
+|@Component|@Named / @ManagedBean|JSR-330 does not provide a composable model, only a way to identify named components.|
+|@Scope("singleton")|@Singleton|The JSR-330 default scope is like Spring’s prototype. However, in order to keep it consistent with Spring’s general defaults, a JSR-330 bean declared in the Spring container is a singleton by default. In order to use a scope other than singleton, you should use Spring’s @Scope annotation. javax.inject also provides a @Scope annotation. Nevertheless, this one is only intended to be used for creating your own annotations.|
+|@Qualifier|@Qualifier / @Named|javax.inject.Qualifier is just a meta-annotation for building custom qualifiers. Concrete String qualifiers (like Spring’s @Qualifier with a value) can be associated through javax.inject.Named.|
+|@Value|-|no equivalent
+|@Required|-|no equivalent
+|@Lazy|-|no equivalent
+|ObjectFactory|Provider|javax.inject.Provider is a direct alternative to Spring’s ObjectFactory, only with a shorter get() method name. It can also be used in combination with Spring’s @Autowired or with non-annotated constructors and setter methods|
+
+
