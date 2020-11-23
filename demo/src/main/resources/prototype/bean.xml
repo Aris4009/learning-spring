@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:aop="http://www.springframework.org/schema/aop"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+       http://www.springframework.org/schema/aop
+       http://www.springframework.org/schema/aop/spring-aop.xsd">
+
+    <bean id="prototypeBean" class="com.example.demo.prototype.PrototypeBean" scope="prototype">
+        <constructor-arg name="name" value="hello"/>
+        <constructor-arg name="age" value="33"/>
+    </bean>
+
+    <!-- 这种注入的方式无效 -->
+    <bean id="singletonBean" class="com.example.demo.prototype.SingletonBean">
+        <property name="prototypeBean" ref="prototypeBean"/>
+    </bean>
+
+    <!-- 实现ApplicationContextAware接口 -->
+    <bean id="singletonBean1" class="com.example.demo.prototype.SingletonBean1"/>
+
+    <!-- Method Injection-->
+    <bean id="singletonBean2" class="com.example.demo.prototype.SingletonBean2">
+        <lookup-method bean="prototypeBean" name="getPrototypeBean"/>
+    </bean>
+
+    <!-- Method Injection-->
+    <bean id="singletonBean4" class="com.example.demo.prototype.SingletonBean4">
+        <lookup-method bean="prototypeBean" name="initPrototypeBean"/>
+    </bean>
+
+    <!-- 使用JSR-330提供的Provider<MyTargetBean> -->
+    <bean id="singletonBean3" class="com.example.demo.prototype.SingletonBean3">
+        <constructor-arg name="prototypeBeanProvider" ref="providerCreatingFactoryBean"/>
+    </bean>
+    <bean id="providerCreatingFactoryBean"
+          class="org.springframework.beans.factory.config.ProviderCreatingFactoryBean">
+        <property name="targetBeanName" value="prototypeBean"/>
+    </bean>
+
+    <!-- Scoped proxy-->
+    <bean id="prototypeBeanScopedProxy" class="com.example.demo.prototype.PrototypeBeanScopedProxy" scope="prototype">
+        <constructor-arg name="prototypeBean" ref="prototypeBean"/>
+        <aop:scoped-proxy proxy-target-class="true"/>
+    </bean>
+    <bean id="singletonBean5" class="com.example.demo.prototype.SingletonBean5">
+        <property name="prototypeBeanScopedProxy" ref="prototypeBeanScopedProxy"/>
+    </bean>
+
+    <!-- ObjectFactory Interface -->
+    <bean id="prototypeBeanFactory" class="com.example.demo.prototype.PrototypeBeanFactory"/>
+    <bean id="singletonBean6" class="com.example.demo.prototype.SingletonBean6">
+        <constructor-arg name="prototypeBeanObjectFactory" ref="prototypeBeanFactory"/>
+    </bean>
+
+    <!-- Create a Bean at Runtime Using java.util.Function -->
+    <bean id="functionBeanFactory" class="com.example.demo.prototype.FunctionBeanFactory"/>
+    <bean id="singletonBean7" class="com.example.demo.prototype.SingletonBean7">
+        <constructor-arg name="beanFactory" ref="functionBeanFactory"/>
+    </bean>
+</beans>

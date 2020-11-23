@@ -3155,4 +3155,101 @@ public class AppConfig {
 </beans>
 ```
 
-通常，请考虑在其他组件可能对其进行显式引用时，使用批注指定名称。另一方面，只要容器负责自动装配，自动生成的名称就足够了。
+通常，请考虑在其他组件可能对其进行显式引用时，使用指定名称。另一方面，只要容器负责自动装配，自动生成的名称就足够了。
+
+### 1.10.7. 为自动侦测的组件提供作用域
+
+与通常使用Spring管理的组件一样，默认的大多数自动侦测到的组件的作用域是`singleton`。但是，有时候需要通过`@Scope`注解来指定不同的作用域。可以为作用域注解提供一个名称，如下：
+```
+@Scope("prototype")
+@Repository
+public class MovieFinderImpl implements MovieFinder {
+    // ...
+}
+```
+
+*`@Scope`注解仅在具体类上（对于注释组件）或者工厂方法（对于`@Bean`方法）上进行内省。与XML bean定义相反，没有bean定义继承的概念，并且在类级别的继承层次结构与元数据目的无关。*
+
+更多web特定的作用域，例如"request"或"session"，查看Request, Session, Application, and WebSocket Scopes。与这些范围的内置注解一样，可以使用Spring的元注解来组合自己的作用域：例如，一个自定义的元注解`@Scope("prototype")`，可能也声明了自定义的scoped-proxy mode。
+
+*提供用于解析作用域的自定义策略，而不是依赖于注解的方法，可以实现`ScopeMetadataResolver`接口。确保包含一个默认的无参构造器。然后，当扫描配置时，可以提供全限定类名，下面的配置是一个注解和一个bean的定义：*
+
+```
+@Configuration
+@ComponentScan(basePackages = "org.example", scopeResolver = MyScopeResolver.class)
+public class AppConfig {
+    // ...
+}
+```
+
+```
+<beans>
+    <context:component-scan base-package="org.example" scope-resolver="org.example.MyScopeResolver"/>
+</beans>
+```
+
+当使用某些非单例作用域时，可能需要为作用域对象生成代理。原因在Scoped Beans as Dependencies中描述过。为此，在组件元素扫描时，可以使用scoped-proxy属性。这里有三个值：`no`，`interface`和`targetClass`.例如，下面是基于标准jdk动态代理的配置：
+```
+@Configuration
+@ComponentScan(basePackages = "org.example", scopedProxy = ScopedProxyMode.INTERFACES)
+public class AppConfig {
+    // ...
+}
+```
+
+```
+<beans>
+    <context:component-scan base-package="org.example" scoped-proxy="interfaces"/>
+</beans>
+```
+
+### 1.10.8. 提供带有注解的限定符元数据
+
+`@Qualifier`在1.9.4中讨论过。本章节将要展示当解析自动装配候选时，使用`@Qualifier`注解和自定义限定符来提供微调。因为这些例子是基于XML bean定义的，通过使用在XML中的`<bean>`元素中的`qualifier`或`meta`子元素，提供候选者的bean定义限定符元数据。当依赖classpath来完成组件自动扫描时，可以在候选类上提供类型级别的限定元数据。下面的三个例子展示了这种技术:
+```
+@Component
+@Qualifier("Action")
+public class ActionMovieCatalog implements MovieCatalog {
+    // ...
+}
+``` 
+
+```
+@Component
+@Genre("Action")
+public class ActionMovieCatalog implements MovieCatalog {
+    // ...
+}
+```
+
+```
+@Component
+@Offline
+public class CachingMovieCatalog implements MovieCatalog {
+    // ...
+}
+```
+
+*与大多数基于注解的替代方法一样，请记住，注解元数据绑定到类定义本身，XML的使用允许相同类型的多个bean提供限定元数据的辩题，因为该元数据是按实例而不是按类提供的。*
+
+### 1.10.9 生成候选组件索引
+
+虽然classpath扫描非常快，但可以通过在编译时创建静态候选列表来提高大型应用的启动性能。在这个模式下，所有作为组件扫描目标的所有模块都必须使用此机制 。
+
+*已经存在的`@ComponentSan`或`<context:component-scan>`指令必须保留，以请求上下文扫描某些软件包中的候选对象。当`ApplicationContext`侦测到这些索引时，它会自动使用而不是扫描classpath。*
+
+为了生成索引，需要向每个包含组件的模块添加附加依赖关系，这些组件是组件扫描指令的目标。下面的例子展示了如何使用maven来创建：
+```
+<dependencies>
+    <dependency>
+        <groupId>org.springframework</groupId>
+        <artifactId>spring-context-indexer</artifactId>
+        <version>5.3.1</version>
+        <optional>true</optional>
+    </dependency>
+</dependencies>
+```
+
+生成过程将包含一个在jar文件中的`META-INF/spring.components`文件。
+
+当使用IDE在这种模式下工作时，`spring-context-indexer`必须作为注解处理器被注册，来确保候选组件更新时，索引是最新的。
