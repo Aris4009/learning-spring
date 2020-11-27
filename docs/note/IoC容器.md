@@ -4613,3 +4613,25 @@ public class AppConfig {
     <import resource="com/bank/service/${customer}-config.xml"/>
 </beans>
 ```
+
+## 1.14. 注册一个`LoadTimeWeaver`
+
+`LoadTimeWeaver`是Spring用来将类加载到Java虚拟机时对其进行动态转换。
+
+为了开启载入是织入，可以在一个`@Configuration`类上增加`@EnableLoadTimeWeaving`：
+```
+@Configuration
+@EnableLoadTimeWeaving
+public class AppConfig {
+}
+```
+
+对于XML，还可以使用`context:load-time-weaver`元素:
+```
+<beans>
+    <context:load-time-weaver/>
+</beans>
+```
+
+为`ApplicationContext`配置后，该`ApplicationContext`中的任何bean都可以实现`LoadTimeWeaverAware`，从而接受对加载时weaver实例的引用。与Spring的JPA支持结合使用时，该功能特别有用，因为在进行JAP类转换时，可能需要加载时织入。有关更多详细信息，请查阅`LocalContainerEntityManagerFactoryBean` javadoc。有关AspectJ加载时编织的更多信息，请参见Spring框架中的AspectJ加载时编织。
+
