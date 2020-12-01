@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd">
+    <bean id="emailService" class="com.example.demo._1_15_2.EmailService">
+        <property name="blockedList">
+            <list>
+                <value>正确地址</value>
+            </list>
+        </property>
+    </bean>
+
+    <bean id="blockedListNotifier" class="com.example.demo._1_15_2.BlockedListNotifier">
+        <property name="notificationAddress" value="blockedlist@example.org"/>
+    </bean>
+</beans>

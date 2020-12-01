@@ -4635,3 +4635,360 @@ public class AppConfig {
 
 为`ApplicationContext`配置后，该`ApplicationContext`中的任何bean都可以实现`LoadTimeWeaverAware`，从而接受对加载时weaver实例的引用。与Spring的JPA支持结合使用时，该功能特别有用，因为在进行JAP类转换时，可能需要加载时织入。有关更多详细信息，请查阅`LocalContainerEntityManagerFactoryBean` javadoc。有关AspectJ加载时编织的更多信息，请参见Spring框架中的AspectJ加载时编织。
 
+
+## 1.15. `ApplicationContext`的其他功能
+
+在介绍章节中说过，`org.springframework.beans.factory`包提供了管理和操作bean的基本功能，也包括以编程方式来管理和操作bean。`org.springframework.context`包增加了`ApplicationContext`接口，它扩展了`BeanFatory`接口，此外还扩展了其他接口，以提供应用程序框架方式的附加功能。许多人以完全声明的方式使用`ApplicationContext`，甚至没有以编程方式创建它，而是依靠诸如`Contextloader`之类的支持类来自动实例化`ApplicationContext`，作为Java EE Web应用程序正常启动过程的一部分。
+
+为了以更加面向框架的方式增强`BeanFactory`的功能，上下文包还提供了一下功能：
+* 通过`MessageSource`接口获取资源国际化的消息
+* 通过`ResourceLoader`接口，获取资源，例如URLs和文件
+* 通过`ApplicationEventPublisher`接口，将事件发布到实现`ApplicationListener`接口的bean。
+* 通过`HierarchicalBeanFactory`接口，载入多个（就有层级关系的）context，让每个上下文只关注一个特定的层，例如web层应用。
+
+### 1.15.1. 使用`MessageSource`进行国际化
+
+`ApplicationContext`接口扩展了`MessageSource`,因此，提供了国际化的功能。Spring也提供了`HierarchicalMessageSource`接口，可以提供分层解析消息。这些接口一起提供了Spring影响消息解析的基础。这些接口定义的方法包括：
+
+* `String getMessage(String code,Object[] args,String default,Locale loc)`：用来从`MessageSource`中获取消息的基本方法。如果找不到指定语言环境的消息时，会使用默认的消息。使用标准库提供的`MessageFormat`功能，传入的所有参数都将成为替换值。
+* `String getMessage(String code,Object[] args,Locale loc)`:本质上来说和前面只有一个不同：没有指定的默认消息。如果消息没有找到，一个`NoSuchMessageException`会抛出。
+* `String getMessage(MessageSourceResolvable resolvable,Locale locale)`:所有前述方法中使用的属性也都包装在名为`MessageSourceResolvable`的类中，可以将其与此方法一直使用。
+
+当`ApplicationContext`加载后，它会在上下文中自动查找一个`MessageSource`的bean 定义。这个bean必须命名为`messageSource`。如果这样的bean被找到，对前面方法的所有调用都委托给消息源。如果没有消息源，`ApplicationContext`尝试查找包含同名bean的父对象。如果是这样，它将使用该bean作为`MessageSource`。如果没有找到任何消息源，一个空的`DelegatingMessageSource`会实例化，以便能够接受对上面定义的方法的调用。
+
+Spring提供了两个`MessageSource`实现，`ResourceBundleMessageSource`和`StaticMessageSource`。他们都实现了`HirrarchicalMessageSource`以便进行嵌套消息传递。`StaticMessageSource`很少使用但是提供了可编程的方式来增加消息源。下面的例子展示了`ResourceBundleMessageSource`：
+
+```
+<beans>
+    <bean id="messageSource"
+            class="org.springframework.context.support.ResourceBundleMessageSource">
+        <property name="basenames">
+            <list>
+                <value>format</value>
+                <value>exceptions</value>
+                <value>windows</value>
+            </list>
+        </property>
+    </bean>
+</beans>
+```
+
+这个例子假设有3个资源包，分别是`format`，`exceptions`，`windows`，他们被定义在classpath下。解析消息的任何请求都通过JDK标准的`ResourceBundle`对象解析消息来处理。就本示例而言，假设上述两个资源包文件的内容如下：
+```
+# in format.properties
+message=Alligators rock!
+```
+
+```
+# in exceptions.properties
+argument.required=The {0} argument is required.
+```
+
+接下来展示了一个运行`MessageSource`功能的程序。记住，所有`ApplicationContext`的实现也实现了`MessageSource`,所以可以转换为`MessageSource`接口。
+```
+public static void main(String[] args) {
+    MessageSource resources = new ClassPathXmlApplicationContext("beans.xml");
+    String message = resources.getMessage("message", null, "Default", Locale.ENGLISH);
+    System.out.println(message);
+}
+```
+
+上面的程序的输出结果是：
+```
+Alligators rock!
+```
+
+总结一下，`MessageSource`定义在了`beans.xml`的文件中，它在classpath的根路径下。`messageSource`定义通过其`basenames`属性引用了许多资源包。列表中传递给basenames属性的三个文件在类路径的根目录下以文件形式存在，分别称为`format.properties``exceptions.properties`和`windows.properties`。
+
+下面的例子展示了传递给消息查找的参数。这些参数将转换为String对象，并插入到查找消息中的占位符中。
+```
+<beans>
+
+    <!-- this MessageSource is being used in a web application -->
+    <bean id="messageSource" class="org.springframework.context.support.ResourceBundleMessageSource">
+        <property name="basename" value="exceptions"/>
+    </bean>
+
+    <!-- lets inject the above MessageSource into this POJO -->
+    <bean id="example" class="com.something.Example">
+        <property name="messages" ref="messageSource"/>
+    </bean>
+
+</beans>
+```
+
+```
+public class Example {
+
+    private MessageSource messages;
+
+    public void setMessages(MessageSource messages) {
+        this.messages = messages;
+    }
+
+    public void execute() {
+        String message = this.messages.getMessage("argument.required",
+            new Object [] {"userDao"}, "Required", Locale.ENGLISH);
+        System.out.println(message);
+    }
+}
+```
+
+调用`execute()`方法的输出结果是：
+```
+The userDao argument is required.
+```
+
+关于国际化（”i18n“），Spring的各种`MessageSource`实现遵循与JDK`ResourceBundle`相同的语言环境解析和后备规则。简而言之，继续前面定义的示例，如果要针对英国(en-GB)语言环境解析消息，则将分别创建名为：`format_en_GB.properties`，`exceptions_en_GB.properties`
+和`windows_en_GB.properties`的文件。
+
+通常，语言环境解析由应用程序的周围环境管理。在下面的例子中，手动指定了针对其解析（英国）消息的语言环境：
+```
+# in exceptions_en_GB.properties
+argument.required=Ebagum lad, the ''{0}'' argument is required, I say, required.
+```
+
+```
+public static void main(final String[] args) {
+    MessageSource resources = new ClassPathXmlApplicationContext("beans.xml");
+    String message = resources.getMessage("argument.required",
+        new Object [] {"userDao"}, "Required", Locale.UK);
+    System.out.println(message);
+}
+```
+
+上面程序的输出结果是：
+```
+Ebagum lad, the 'userDao' argument is required, I say, required.
+```
+
+也可以使用`MessageSourceAware`接口来请求任何`MessageSource`的引用。任何实现`MessageSourceAware`接口的bean定义都会在`ApplicationContext`的`MessageSource`一起注入。
+
+*作为`ResourceBundleMessageSource的另一个代理方案，Spring提供一个`ReloadableResourceBundleMessageSource`类。它支持相同的资源包格式但是比基于JDK的`ResourceBundleMessageSource`实现更有弹性。特别的，它允许读取任何位置的文件（不仅仅是从classpath），并且支持重新加载资源包属性文件（同事在他们之间进行高效缓存）。*
+
+### 1.15.2. 标准的和自定义事件
+
+`ApplicationContext`中通过`ApplicationEvent`类和`ApplicationListener`接口来处理事件。如果在上下文中部署了实现`ApplicationListener`接口的bean，每次`ApplicationEvent`发布到`ApplicationContex`时，都会通知该bean。本质上，这是标准的观察者模式。
+
+*Spring4.2以后，事件基础设施已经有了重要的提升，并且提供一个很好的注解模型能力来发布任何事件（也就是说，一个对象不再需要从`ApplicationEvent`上扩展）。当这样的对象被发布后，spring把它包装成一个事件来发布。*
+
+下面的表格描述了Spirng提供的标准事件：
+
+|事件|解释|
+|---|---|
+|`ContextRefreshedEvent`|当`ApplicationContext`被初始化或刷新（例如，通过`ConfigurableApplicationContext`接口使用`refresh()`方法）来发布。这里，初始化意味着所有bean被加载，post-processor beans被侦测到并且被激活，单例被预先实例化，并且`ApplicationContext`对象已经准备使用。只要context没有关闭，刷新可以触发多次，前提是所选的`ApplicationContext`实际上支持热刷新。例如，`XmlWebApplicationContext`支持热刷新，但是`GenericApplicationContext`不支持。|
+|`ContextStartedEvent`|使用`ConfigurableApplicationContext`接口上的`start()`方法启动`ApplicationContext`时发布。这里，开始意味着所有的`Lifecycle`bean收到了一个明确的启动信号。通常，这个信号用来在明确的停止后重启bean，但是，它可能被用来启动那些没有配置自动启动的组件（例如，上位在初始化时启动的组件）。|
+|`ContextStoppedEvent`|当调用`ConfigurableApplicationContext`接口上的`stop()`方法来关闭`ApplicationContext`时发布。这里，停止意味着所有`Lifecycle`的bean收到一个明确的停止信号。一个停止了的上下文可能通过`start()`调用来重启。
+|`ContextClosedEvent`|当调用`ConfigurableApplicationContext`接口上的`close()`方法或一个JVM shutdown hook来关闭`ApplicationContext`时发布。这里，关闭意味着所有单例bean会被销毁。关闭上下文后，它将达到使用寿命并且无法刷新或重启。|
+|`RequestHandledEvent`|一个特定的web事件，告诉所有bean HTTP请求已经得到服务。这个事件在请求完成后发布。这个事件只适用于那些使用了Spring的`DispatcherServlet`的web应用。|
+|`ServletRequestHandledEvent`|`RequestHandledEvent`的子类，增加了特定的Servlet上下文信息。|
+
+可以创建和发布自定义的事件。下面的例子展示了一个简单的类，它扩展自`ApplicationEvent`基类：
+```
+public class BlockedListEvent extends ApplicationEvent {
+
+    private final String address;
+    private final String content;
+
+    public BlockedListEvent(Object source, String address, String content) {
+        super(source);
+        this.address = address;
+        this.content = content;
+    }
+
+    // accessor and other methods...
+}
+```
+
+为了发布自定义的`ApplicationEvent`，需要调用`ApplicationEventPublisher`上的`publishEvent()`方法。通常，在创建了一个实现了`ApplicationEventPublisherAware`的类并且把它作为Spring bean来注册后完成。下面的例子展示了这样的类：
+```
+public class EmailService implements ApplicationEventPublisherAware {
+
+    private List<String> blockedList;
+    private ApplicationEventPublisher publisher;
+
+    public void setBlockedList(List<String> blockedList) {
+        this.blockedList = blockedList;
+    }
+
+    public void setApplicationEventPublisher(ApplicationEventPublisher publisher) {
+        this.publisher = publisher;
+    }
+
+    public void sendEmail(String address, String content) {
+        if (blockedList.contains(address)) {
+            publisher.publishEvent(new BlockedListEvent(this, address, content));
+            return;
+        }
+        // send email...
+    }
+}
+```
+
+在配置时，Spring容器检测到`EmailService`实现了`ApplicationEventPublisherAware`并且自动调用`setApplicationEventPublisher()`。事实上，传入的参数是Spring
+容器本身。用户可以通过`ApplicationEventPublisher`接口进行应用上下文的交互。
+
+为了接收到自定义的`ApplicationEvent`，可以创建一个实现了`ApplicationListener`并且注册到Spring的bean。接下来的例子展示了这样的类:
+```
+public class BlockedListNotifier implements ApplicationListener<BlockedListEvent> {
+
+    private String notificationAddress;
+
+    public void setNotificationAddress(String notificationAddress) {
+        this.notificationAddress = notificationAddress;
+    }
+
+    public void onApplicationEvent(BlockedListEvent event) {
+        // notify appropriate parties via notificationAddress...
+    }
+}
+```
+
+注意`ApplicationListener`是通常使用自定义时间的类型进行参数化（上一个示例中的`BlockedListEvent`）。这意味着`onApplicationEvent()`方法可以保持类型安全，避免任何向下转换的需要。可以注册多个监听器，但是注意，默认情况下，时间监听器收到的时间是同步的。这意味着`publishEvent()`方法当所有坚挺着完成处理时间请求之前是阻塞的。这种同步和单线程的优点是，当监听器收到一个事件，如果有可用的事务上下文，它将在发布者的事务上下文中进行操作。如果需要其他的事件发布策略，可以参考Spring的`ApplicationEventMulticaster`接口和` SimpleApplicationEventMulticaster`实现来配置可选项。
+
+下面的例子展示了定义bean来注册和配置上面的每个类：
+```
+<bean id="emailService" class="example.EmailService">
+    <property name="blockedList">
+        <list>
+            <value>known.spammer@example.org</value>
+            <value>known.hacker@example.org</value>
+            <value>john.doe@example.org</value>
+        </list>
+    </property>
+</bean>
+
+<bean id="blockedListNotifier" class="example.BlockedListNotifier">
+    <property name="notificationAddress" value="blockedlist@example.org"/>
+</bean>
+```
+
+将所有内容放在一起，当调用`emailService`中的`sendMail()`方法时，如果有任何阻塞的email消息，则发布`BlockedListEvent`类型的自定义事件。这个`blockedListNotifier`bean作为`ApplicationListener`注册并且接收`BlockedListEvent`，此时它可以通知适当的参与者。
+
+*Spring事件机制被设计为简单链接同一个应用上下文的Spring beans。然而，对于更复杂的企业集成需要，单独维护的Spring Integration项目为基于Spring编程模型构建轻量级的，面向模式的事件驱动架构提供了完整的支持。*
+
+**基于注解的事件监听者**
+
+在Spring4.2以后，可以在任何被管理的bean的public方法上使用`@EventListener`注解来注册一个事件监听者。`BlockedListNotifier`可以像下面的例子一样被重写：
+```
+public class BlockedListNotifier {
+
+    private String notificationAddress;
+
+    public void setNotificationAddress(String notificationAddress) {
+        this.notificationAddress = notificationAddress;
+    }
+
+    @EventListener
+    public void processBlockedListEvent(BlockedListEvent event) {
+        // notify appropriate parties via notificationAddress...
+    }
+}
+```
+
+这个方法签名再次声明了需要监听的事件类型，但是，这次，它没有实现特定的监听者接口并且有灵活的名称。只要实际事件类型在其实现层次结构中解析为泛型参数，也可以通过泛型类型来缩小事件类型。
+
+如果方法需要监听一些事件或如果想要定义完全没有参数的事件，事件类型可以被定义在注解本身上。下面展示了这样的例子：
+```
+@EventListener({ContextStartedEvent.class, ContextRefreshedEvent.class})
+public void handleContextStart() {
+    // ...
+}
+```
+
+通过使用注解的`condition`属性，定义一个`SpEL表达式`，也可以增加额外的运行时过滤，该注解应匹配以针对特定事件实际调用该方法。
+
+接下来的例子展示了监听者如何被重写并被调用，只要事件的属性`content`和`my-event`相等：
+```
+@EventListener(condition = "#blEvent.content == 'my-event'")
+public void processBlockedListEvent(BlockedListEvent blockedListEvent) {
+    // notify appropriate parties via notificationAddress...
+}
+```
+
+每个SpEL表达式都会根据专用上下文进行评估。下面的表格列出了上下文可用的条目以便可以对条件事件的处理进行使用：
+
+|Name|Location|Description|Example|
+|---|---|---|---|
+|Event|root object|实际的`ApplicationEvent`|`#root.event`或`event`|
+|Arguments array|root object|参数（作为一个对象数组）用来调用方法|`#root.args`或`args`；`args[0]`来访问第一个参数等等。|
+|Argument name|evaluation context|任何方法参数的名字。如果由于某种原因这些名称不可用（例如，因为因为在已编译的字节码中没有调试信息），也可以使用#a <#arg>语法使用单个参数，其中<#arg>代表参数索引（从0开始）。|`#blEvent`或`＃a0`（您也可以使用`＃p0`或`#p <#arg>`参数符号作为别名）|
+
+请注意，即使方法签名实际上引用了已发布的任意对象，＃root.event也使您可以访问基础事件。
+
+如果由于处理另一个事件而需要发布一个事件，则可以更改方法签名以返回应发布的事件，如以下示例所示：
+```
+@EventListener
+public ListUpdateEvent handleBlockedListEvent(BlockedListEvent event) {
+    // notify appropriate parties via notificationAddress and
+    // then publish a ListUpdateEvent...
+}
+```
+
+*这个特性在异步监听器中不支持*
+
+这个新的方法为上述每个`BlockedListEvent`发布了一个新的`ListUpdateEvent`。如果需要发布一些事件，可以返回一个事件的`Collection`类型来代替。
+
+**异步监听者**
+
+如果想要一个特殊的监听者来处理异步事件，可以重用`@Async`。下面的例子展示了如何做：
+```
+@EventListener
+@Async
+public void processBlockedListEvent(BlockedListEvent event) {
+    // BlockedListEvent is processed in a separate thread
+}
+```
+
+使用异步事件，需要认识到下列的限制：
+* 如果异步事件监听者抛出一个`Exception`，它不会传播给调用者。可以参考`AsyncUncaughtExceptionHandler`的更多细节。
+* 异步事件监听者方法无法通过返回值来发布后续事件。如果需要将处理结果作为另一个事件发布，需要注入一个`ApplicationEventPublisher`来手动发布事件。
+
+**监听者排序**
+如果需要在另一个监听者之前调用一个监听者，可以在方法声明上增加`@Order`注解：
+```
+@EventListener
+@Order(42)
+public void processBlockedListEvent(BlockedListEvent event) {
+    // notify appropriate parties via notificationAddress...
+}
+```
+
+**泛型事件**
+
+可以使用泛型来进一步定义事件的结构。思考使用一个`EntityCreatedEvent<T>`，其中，`T`是已创建的实例实体的类型。例如，可以创建如下的监听者来定义只接受`Person`的`EntityCreatedEvent`泛型。
+```
+@EventListener
+public void onPersonCreated(EntityCreatedEvent<Person> event) {
+    // ...
+}
+```
+
+由于类型擦除，仅当触发的事件解析了事件监听器用来过滤的泛型参数（即类似`class PersonCreatedEvent extends EntityCreatedEvent<Person>{...}`）才生效。
+
+在某些情况下，如果所有事件都遵循相同的结构，这可能会变得很乏味（就像前面示例中的事件一样）。在这些例子中，可以实现`ResolvableTypeProvider`来引导框架，使其超出运行时环境提供的范围:
+```
+public class EntityCreatedEvent<T> extends ApplicationEvent implements ResolvableTypeProvider {
+
+    public EntityCreatedEvent(T entity) {
+        super(entity);
+    }
+
+    @Override
+    public ResolvableType getResolvableType() {
+        return ResolvableType.forClassWithGenerics(getClass(), ResolvableType.forInstance(getSource()));
+    }
+}
+```
+
+*这不仅适用于`ApplicationEvent`,而且适用于为事件发送的任何对象。*
+
+### 1.15.3. 方便地访问底层资源
+
+为了获得最佳用法和对应用程序上下文的理解，应该熟悉Spring的`Resource`抽象。
+
+一个应用程序上下文是一个`ResourceLoader`，可以用来加载`Resource`对象。一个`Resource`本质上是JDK`java.net.URL`类的功能更丰富的版本。实际上，`Resource`的实现包装了一个合适的`java.net.URL`的实例。一个`Resource`几乎可以透明的从任何位置获取低级别资源，包括从classpath，文件系统，任何被标准URL描述的位置或其他途径。如果资源位置是简单的路径字符串并且没有任何前缀，则这些资源的来源是特定的并且适合于实际的应用程序上下文类型。
+
+可以在应用程序上下文中配置一个实现了特殊回调接口的bean，`ResourceLoaderAware`，将在初始化时自动回调，而应用程序上下文本身作为`ResourceLoader`传入。还可以公开`Resource`类型的属性，用于访问静态资源。他们像其他属性一样注入其中。可以将那些`Resource`属性指定为简单的`String`路径，并在部署bean时，依靠从这些文本字符串到实际`Resource`对象的自动转换。提供给`ApplicationContext`构造函数的一个或多个位置路径实际上是资源字符串，并且按照特定的上下文实现以简单的形式对其进行适当的处理。例如，`ClassPathXmlApplicationContext`将简单的位置路径视为类路径位置。也可以使用带有特殊前缀的位置路径（资源字符串）来强制从类路径或URL中加载定义，而不管实际的上下文类型如何。
+
+

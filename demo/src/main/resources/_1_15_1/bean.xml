@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd">
+
+    <!-- id必须为messageSource -->
+    <bean id="messageSource" class="org.springframework.context.support.ResourceBundleMessageSource">
+        <property name="basenames">
+            <set>
+                <value>format</value>
+                <value>exceptions</value>
+                <value>windows</value>
+            </set>
+        </property>
+    </bean>
+
+    <bean id="example" class="com.example.demo._1_15_1.Example">
+        <property name="messageSource" ref="messageSource"/>
+    </bean>
+
+    <bean id="exampleMsa" class="com.example.demo._1_15_1.ExampleMessageSourceAware">
+        <property name="messageSource" ref="messageSource"/>
+    </bean>
+</beans>
