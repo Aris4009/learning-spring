@@ -4991,4 +4991,8 @@ public class EntityCreatedEvent<T> extends ApplicationEvent implements Resolvabl
 
 可以在应用程序上下文中配置一个实现了特殊回调接口的bean，`ResourceLoaderAware`，将在初始化时自动回调，而应用程序上下文本身作为`ResourceLoader`传入。还可以公开`Resource`类型的属性，用于访问静态资源。他们像其他属性一样注入其中。可以将那些`Resource`属性指定为简单的`String`路径，并在部署bean时，依靠从这些文本字符串到实际`Resource`对象的自动转换。提供给`ApplicationContext`构造函数的一个或多个位置路径实际上是资源字符串，并且按照特定的上下文实现以简单的形式对其进行适当的处理。例如，`ClassPathXmlApplicationContext`将简单的位置路径视为类路径位置。也可以使用带有特殊前缀的位置路径（资源字符串）来强制从类路径或URL中加载定义，而不管实际的上下文类型如何。
 
+### 1.15.4. Application启动跟踪
+
+
+
 
