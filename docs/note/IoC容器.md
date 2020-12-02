@@ -5060,6 +5060,62 @@ scanPackages.end();
 
 *这样的RAR部署单元通常是独立的。他们不会将组件暴露给外部，甚至不会暴露给统一应用程序的其他模块。与基于RAR的`ApplicationContext`的交互通常是通过与其他模块共享的JMS目标进行的。基于RAR的`ApplicationContext`还可以计划一些作业或对文件系统中的新文件做出反应。如果需要允许来自外部的同步访问，则可以导出RMI断点，这些断点可以由同一台计算机上的其他应用程序模块使用。*
 
+## 1.16. `BeanFactory`
 
+`BeanFactory` API为Spring的IoC功能提供了基础。它的特定的合约主要用于Spring的其他部分以及相关的第三方框架，并且他的`DefaultListableBeanFactory`实现是更高级别的`GenericAppicationContext`容器内的关键委托。
 
+`BeanFactory`和其他相关的接口（例如`BeanFactoryAware`，`InitializingBean`,`DisposableBean`）对其他框架组件来说是非常重要的集成点。不需要任何注解甚至反射，他们允许容器及其组件可以有非常有效的交互。应用层级别的beans可以使用相同的回调接口，但通常更喜欢通过注释或通过程序配置进行生命式的依赖注入。
 
+注意核心的`BeanFactory`API级别和`DefaultListableBeanFactory`实现不对配置格式或要使用的任何组件注解进行假设。所有这些都是通过扩展（例如`XmlBeanDefinitionReader`和`AutowiredAnnotationBeanPostProcessor`）引入的，并以核心元数据表示形式对共享的`BeanDefinition`对象进行操作。这就是使Spring的容器如此灵活和扩展的本质。
+
+### 1.16.1. `BeanFatory`还是`ApplicationContext`？
+
+这部分解释了`BeanFactory`和`ApplicationContext`容器级别之间的区别以及对引导的影响。
+
+应该使用`ApplicationContext`，除非有好的理由不这么做，除非将`GenericApplicationContext`及其子类`AnnotationConfigApplicationContext`作为自定义引导的常见实现，否则应该使用`ApplicationContext`。这些是所有常见用途的Spring核心容器的主要入口点：加载配置文件，触发一个类路径扫描，以编程的方式注册bean definitions，注解类并且（从5.0以后）注册功能性的bean definitions。
+
+因为一个`ApplicationContext`包含了`BeanFactory`的所有功能，所以通常建议在普通`BeanFactory`上使用，除非需要对bean处理的完全控制。通过一个`ApplicationContext`（例如`GenericApplicationContext`的实现），各种类型的bean会通过转换被检测到（也就是说，通过bean name或者通过bean type-特别是，post-processors），然而，普通的`DefaultListableBeanFactory`不知道任何特殊的bean。
+
+对于更多容器的扩展特性，例如注解处理和AOP代理，`BeanPostProcessor扩展点`至关重要。如果只使用普通的`DefaultListableBeanFactory`，像post-processors默认不会被检测和激活。这种情况可能会让人困惑，因为bean配置没有实际的错误。在这种情况下，需要通过其他设置来引导容器。
+
+下面的表格烈士了`BeanFactory`和`ApplicationContext`接口和实现的特性：
+
+|Feature|`BeanFactory`|`ApplicationContext`|
+|---|---|---|
+|bean实例化/装配|Yes|Yes|
+|集成生命周期管理|No|Yes|
+|自动`BeanPostProcessor`注册|No|Yes|
+|自动`BeanFactoryPostProcessor`注册|No|Yes|
+|方便的`MessageSource`访问（用于内部）|No|Yes|
+|构建`ApplicationEvent`发布机制|No|Yes|
+
+为了让`DefaultListableBeanFactory`注册一个bean post-processor，需要用编程方式调用`addBeanPostProcessor`：
+
+```
+DefaultListableBeanFactory factory = new DefaultListableBeanFactory();
+// populate the factory with bean definitions
+
+// now register any needed BeanPostProcessor instances
+factory.addBeanPostProcessor(new AutowiredAnnotationBeanPostProcessor());
+factory.addBeanPostProcessor(new MyBeanPostProcessor());
+
+// now start using the factory
+```
+
+为了将`BeanFactoryPostProcessor`给一个普通的`DefaultListableBeanFactory`，需要调用`postProcessorBeanFactory`方法：
+```
+DefaultListableBeanFactory factory = new DefaultListableBeanFactory();
+XmlBeanDefinitionReader reader = new XmlBeanDefinitionReader(factory);
+reader.loadBeanDefinitions(new FileSystemResource("beans.xml"));
+
+// bring in some property values from a Properties file
+PropertySourcesPlaceholderConfigurer cfg = new PropertySourcesPlaceholderConfigurer();
+cfg.setLocation(new FileSystemResource("jdbc.properties"));
+
+// now actually do the replacement
+cfg.postProcessBeanFactory(factory);
+```
+
+在这两个例子中，显示的注册步骤不方便，这也就是为什么在Spring支持的应用程序中，各种`ApplicationContext`变种比普通的`DefaultListableBeanFactory`更为可取的原因，特步是在典型的企业设置中依赖`BeanFactoryPostProcessor`和`BeanPostProcessor`实例来扩展容器功能时。
+
+*一个`AnnotationConfigApplicationContext`已注册了所有常用的注解post-processors，并且可以通过配置注解在幕后引入其他处理器，例如`@EnableTransactionManagement`。在Spring基于注解的配置模型的抽象级别上，bean post-processors的概念仅是内部容器详细信息*
