@@ -4993,6 +4993,55 @@ public class EntityCreatedEvent<T> extends ApplicationEvent implements Resolvabl
 
 ### 1.15.4. Application启动跟踪
 
+`ApplicationContext`管理了Spring应用程序的生命周期并且提供围绕组件的丰富的编程模型。结果，复杂的应用程序可能具有同样复杂的组件图和启动阶段。
+
+使用特定指标跟踪应用程序的启动步骤可以帮助理解启动阶段的花费时间,但也可以用来更好的理解整个上下文生命周期。
+
+`AbstractApplicationContext`（和它的子类）通过`ApplicationStartup`进行检测，该应用程序收集有关各个启动阶段的`StartupStep`数据：
+
+* 应用程序上下文生命周期（基础软件包扫描，配置类管理）
+* beans的生命周期（实例化，只能初始化，后期处理）
+* 应用程序事件处理
+
+这是`AnnotationConfigApplicationContext`中的检测示例：
+```
+// create a startup step and start recording
+StartupStep scanPackages = this.getApplicationStartup().start("spring.context.base-packages.scan");
+// add tagging information to the current step
+scanPackages.tag("packages", () -> Arrays.toString(basePackages));
+// perform the actual phase we're instrumenting
+this.scanner.scan(basePackages);
+// end the current step
+scanPackages.end();
+```
+
+应用程序上下文已经经过多个步骤进行检测。一旦记录后，可以用特定工具手机，显示和分析这些启动步骤。有关现有启动步骤的完整列表，请查看专用的附录部分。
+
+默认`ApplicationStartup`实现是一个误操作变体，以最小的开销。这意味着在默认情况下，在应用程序启动期间不会收集任何指标。Spring框架附带了一个用于使用Java Flight Recorder跟踪启动步骤的实现：`FlightRecorderApplicationStartup`。为了使用这个变体，必须在创建它后立即将其实例配置到`ApplicationContext`。
+
+如果开发者提供了自己的`AbstractApplicationContext`子类，或者希望收集更精确的数据，则也可以使用`ApplicationStartup`基础结构。
+
+*`ApplicationStartup`只应在应用程序启动期间使用，并用于核心容器。这绝不是Java分析器或指标库（如`Micrometer`）的替代品*
+
+为了开始收集自定义的`StartupStep`，组件可以直接从应用程序上下文中获取`ApplicationStartup`实例，使他们的组件实现`ApplicationStartupAware`，或者在任何注入点上请求`ApplicationStartup`类型。
+
+*开发者当创建自定义启动步骤时，不应该使用`"spring.*"`命名空间。这个命名空间保留给Spring内部使用，并且可能会发生变化。*
+
+### 1.15.5. Web应用程序的便捷`ApplicationContext`实例化
+
+可以通过以下方式声明性地创建`ApplicationContext`实例：例如，一个`ContextLoader`。当然，也可以通过使用一个`ApplicationContext`的实现以编程的方式创建一个`ApplicationContext`实例。
+
+可以使用`ContextLoaderListener`来注册一个`ApplicationContext`：
+```
+<context-param>
+    <param-name>contextConfigLocation</param-name>
+    <param-value>/WEB-INF/daoContext.xml /WEB-INF/applicationContext.xml</param-value>
+</context-param>
+
+<listener>
+    <listener-class>org.springframework.web.context.ContextLoaderListener</listener-class>
+</listener>
+```
 
 
 
