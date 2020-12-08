@@ -1,1 +1,1 @@
-*.java linguist-language=java
+demo/src/* linguist-language=java
