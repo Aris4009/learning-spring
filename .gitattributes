@@ -1,3 +1,1 @@
-*.java linguist-language=Java
-*.md linguist-language=Markdown
-
+*.java linguist-language=java
