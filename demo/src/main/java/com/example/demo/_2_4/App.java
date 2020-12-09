@@ -23,9 +23,9 @@ public class App {
 		String a2 = read(beansXmlResource);
 		log.info("{}", a2);
 
-//		Resource appClassResource = context.getResource("file://App.class");
-//		String a3 = read(appClassResource);
-//		log.info("{}", a3);
+		Resource appClassResource = context.getResource("file:///App.java");
+		String a3 = read(appClassResource);
+		log.info("{}", a3);
 
 		Resource template = context.getResource("https://www.baidu.com");
 		String a4 = read(template);

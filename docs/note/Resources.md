@@ -233,5 +233,189 @@ public interface ResourceLoaderAware {
 
 
 ```
+<property name="template" value="file:///some/resource/path/myTemplate.txt"/>
+```
+
+
+
+## 2.7. 应用程序上下文和资源路径
+
+本章覆盖了如何创建带有资源的应用程序上下文，包含适用于XML的快捷方式，如何使用通配符以及其他详细信息。
+
+### 2.7.1. 构造应用程序上下文
+
+一个应用程序上下文构造器（对于一个特定的应用程序上下文类型）通常是用一个字符串或字符串数组来作为资源的位置路径，例如XML文件构成的上下文定义。
+
+当这样的路径没有前缀时，特定的`Resource`类型从路径中构建并且用来依赖适合的应用程序上下文来加载bean定义。例如，考虑下面的创建`ClassPathXmlApplicationContext`的例子：
+
+```
+ApplicationContext ctx = new ClassPathXmlApplicationContext("conf/appContext.xml");
+```
+
+这个bean定义从classpath中加载，因为使用了`ClassPathResource`。但是，考虑下面创建`FileSystemXmlApplicationContext`的例子：
+
+```
+ApplicationContext ctx =
+    new FileSystemXmlApplicationContext("conf/appContext.xml");
+```
+
+现在，bean是从一个文件系统位置中加载的（在这个例子中，是相关的当前工作目录）。
+
+注意在位置路径上使用特殊classpath前缀或标准URL前缀会覆盖`Resource`的默认类型来创建加载bean定义。考虑下面的例子：
+
+```
+ApplicationContext ctx =
+    new FileSystemXmlApplicationContext("classpath:conf/appContext.xml");
+```
+
+使用`FileSystemXmlApplicationContext`从classpath中加载bean定义。但是，它仍然是一个`FileSystemXmlApplicationContext`。如果它随后用作`ResourceLoader`，则任何未加前缀的路径仍将视为文件系统路径。
+
+
+
+ **构造`ClassPathXmlApplicationContext`实例的便捷方法**
+
+`ClassPathXmlApplicationContext`暴露了一组构造函数，用来方便的实例化。基本思想是，只能提供一个字符串数组，该字符串数组仅包含XML文件本身的文件名（不包含路径信息）并且还提供一个`Class`。然后，`ClassPathXmlApplicationContext`从提供的类中派生路径信息。
+
+思考下面的目录布局：
+
+```
+com/
+  foo/
+    services.xml
+    daos.xml
+    MessengerService.class
+```
+
+下面的例子展示了`ClassPathXmlApplicationContext`实例如何实例化使用命名为`services.xml`和`daos.xml`的文件来组合bean定义（他们在classpath上）。
+
+```
+ApplicationContext ctx = new ClassPathXmlApplicationContext(
+    new String[] {"services.xml", "daos.xml"}, MessengerService.class);
+```
+
+更多构造函数可以参考javadoc。
+
+### 2.7.2. 应用程序上下文构造器的资源路径通配符
+
+应用程序上下文构造器中的资源路径值可能是一个简单的路径（就像上面提到的），每个都有一个一对一的到目标`Resource`的映射，或者，也能包含特殊的`classpath*:`前缀或内部Ant风格的表达式（通过Spring的`PathMatcher`工具来匹配）。后面的两个是非常有效的通配符。
+
+这种机制的一种用途是当需要进行组件样式的应用程序组装时。所有组件可以“发布”上下文定义片段到已知的位置路径，并且，当最终的应用程序上下文通过相同的路径前缀`classpath*:`来创建时，所有的组件片段会自动被拾取。
+
+注意，此通配符特定于在应用程序上下文构造函数中使用资源路径（或当使用`PathMatcher`工具类直接集成）并且在构造时被解析。它与`Resource`类型本身无关。不能使用`classpath*:`前缀来构造一个实际的`Resource`，因为资源一次仅指向一个资源。
+
+
+
+**Ant风格模式**
+
+路径位置可以包含Ant风格模式：
+
+```
+/WEB-INF/*-context.xml
+com/mycompany/**/applicationContext.xml
+file:C:/some/path/*-context.xml
+classpath:com/mycompany/**/applicationContext.xml
+```
+
+当路径位置包含一个Ant风格模式，解析器遵循一个更复杂的过程来尝试解析通配符。它为到达最后一个非通配符段的路径生成资源，并从中获取URL。如果这个URL不是一个`jar:`Url或者特殊容器变种（例如在WebLogic中的`zip:`，WebSphere中的`wsjar`等等），那么会从中获取一个`java.io.File`并且通过遍历文件系统来解析通配符。在一个jar URL的例子中，解析器可以从中获取`java.net.JarURLConnection`，也可以手动解析jar URL，然后遍历jar文件的内容以解析通配符。
+
+
+
+**对可移植性的影响**
+
+如果指定的路径已经是一个文件URL（或者隐式地因为基于`ResourceLoader`是一个文件系统，或显示地），通配符保证可以完全移植工作。
+
+如果指定的路径是classpath位置路径，解析器必须通过调用`ClassLoader.getResource()`获取最后不是通配符的路径片段URL。因为这仅仅是一个路径的节点（不是最终的文件），它实际上未被定义（在`ClassLoader`文档中），在这种情况下，究竟返回的是哪种URL。特别的，它总是一个`java.io.File`，表示目录（类路径资源解析到文件系统位置）或某个jar URL（类路径资源解析到jar位置）。尽管如此，此操作仍存在可移植的问题。
+
+
+
+如果为了最后一个非通配符段获取了jar URL，解析器必须能从中获取`java.net.JarURLConnection`或手动解析jar URL，才能比遍历jar的内容并解析通配符。这在大多数环境中确实有效，但在其他环境中则无效，因此强烈建议在依赖特定环境之前，对来自jars的资源的通配符解析进行彻底测试。
+
+
+
+**`classpath*:`前缀**
+
+当构造一个基于XML的应用程序上下文时，字符串位置可以使用特殊的`classpath*:`前缀：
+
+```
+ApplicationContext ctx =
+    new ClassPathXmlApplicationContext("classpath*:conf/appContext.xml");
+```
+
+这个特殊的前缀指定必须获取与给定名称匹配的所有类路径资源（在内部，这实际上是通过调用`ClassLoader.getResources(...)`发生的），然后合并以形成最终的应用程序上下文。
+
+*classpath通配符依赖于底层classloader的`getResources()`方法。当今绝大数的应用程序服务器提供他们自己的classloader实现，行为也许不同，尤其是当处理jar文件时。检查`classpath` *是否可行的简单测试是使用classloader从classpath的jar中加载文件：`getClass().getClassLoader().getResources("<someFileInsideTheJar>")`。尝试对具有相同名称但位于两个不同位置的文件进行此测试。如果返回了不合适的结果，请检查应用程序服务器文档中可能影响类加载器行为的设置。*
+
+还可以在其余的位置路径中将`classpath *`：前缀与`PathMatcher`模式结合使用(例如，`classpath*:META-INF/*-beans.xml`)。在这个例子中，解析策略非常简单：在最后一个非通配符路径段上使用`ClassLoader.getResources()`调用，以获取类加载器层次结构中的所有匹配资源，然后在每个资源之外，对通配符子路径使用前面所述的相同PathMatcher解析策略。
+
+**有关通配符的其他说明**
+
+请注意，当`classpath *`：与Ant样式的模式结合使用时，除非模式文件实际驻留在文件系统中，否则在模式启动之前，它只能与至少一个根目录可靠地一起工作。这意味着诸如`classpath*:*.xml`之类的模式可能不会从jar文件的根目录检索文件，而只会从扩展目录的根目录检索文件。
+
+Spring检索类路径条目的能力源自JDK的`ClassLoader.getResources()`方法，该方法仅返回文件系统中的名字符串位置（表示可能要搜多的根）。Spring还会评估jar文件中的`URLClassLoader`运行时配置和`java.class.path`清单，但是不能保证会导致可移植行为。
+
+
+
+*扫描类路径包需要在类路径中存在相应的目录条目。使用Ant构建JAR时，请勿激活JAR任务的仅文件开关。而且，在某些环境中，基于安全策略，可能不会公开类路径目录-例如，在JDK 1.7.0_45及更高版本上的独立应用程序（这需要在清单中设置“受信任的库”）。*
+
+*在JDK 9的模块路径（Jigsaw）上，Spring的类路径扫描通常可以按预期进行。 强烈建议在此处将资源放入专用目录，以避免在搜索jar文件根目录级别时出现上述可移植性问题。*
+
+
+
+具有类路径的Ant样式模式：如果要搜索的根包在多个类路径位置可用，则不能保证资源找到匹配的资源。考虑以下资源位置示例：
+
+```
+com/mycompany/package1/service-context.xml
+```
+
+
+
+现在考虑可能用来尝试找到该文件的Ant样式的路径：
+
+```
+classpath:com/mycompany/**/service-context.xml
+```
+
+
+
+这样的资源可能只在一个位置，但是当使用诸如上述示例的路径来尝试对其进行解析时，解析器将处理`getResource("com/mycompany")`返回的（第一个）URL。如果此基本包节点存在于多个类加载器位置，则实际的最终资源可能不存在。因此，在这种情况下，应该更喜欢使用具有相同Ant样式模式的`classpath*:`，该模式将搜索包含根包的所有类路径位置。
+
+
+
+### 2.7.3. `FileSystemResource`注意事项
+
+一个`FileSystemResource`没有附加在`FileSystemApplicationContext`（即当`FileSystemApplicationContext`不是实际的`ResourceLoader`时）将按照预期的方式处理绝对路径和相对路径。相对路径是相对于当前工作目录的，而绝对路径是相对于文件系统的根的。
+
+但是，出于向后兼容性（历史）的原因，当`FileSystemApplicationContext`是`ResourceLoader`时，情况会发生变化。`FileSystemApplicationContext`强制所有附加的`FileSystemResource`实例将所有位置路径都视为相对位置，无论它们是否以前斜杠开头。实际上，这意味着以下示例是等效的：
+
+```
+ApplicationContext ctx =
+    new FileSystemXmlApplicationContext("conf/context.xml");
+```
+
+```
+ApplicationContext ctx =
+    new FileSystemXmlApplicationContext("/conf/context.xml");
+```
+
+以下示例也是等效的（即使它们有所不同也有意义，因为一种情况是相对的，另一种情况是绝对的）：
+
+```
+FileSystemXmlApplicationContext ctx = ...;
+ctx.getResource("some/resource/path/myTemplate.txt");
+```
+
+```
+FileSystemXmlApplicationContext ctx = ...;
+ctx.getResource("/some/resource/path/myTemplate.txt");
+```
+
+在实践中，如果需要真正的绝对文件系统路径，则应避免将绝对路径与`FileSystemResource`或`FileSystemXmlApplicationContext`一起使用，并通过使用`file:`URL前缀来强制使用UrlResource。
+
+```
+// actual context type doesn't matter, the Resource will always be UrlResource
+ctx.getResource("file:///some/resource/path/myTemplate.txt");
+```
+
+```
 
 ```
