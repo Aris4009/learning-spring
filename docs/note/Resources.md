@@ -820,3 +820,30 @@ public final class RegisterUserController extends SimpleFormController {
 ```
 
 这种样式的`PropertyEditor`注册可以导致代码简洁（`initBinder(..)`的实现只有一行长），并且可以将通用的`PropertyEditor`注册代码封装在一个类中，然后根据需要在许多Controller之间共享。
+
+## 3.4. Spring类型转换
+
+Spring 3中引入了`core.convert`包，提供了一个通用类型转换系统。这个系统定义了一个SPI来实现类型转换的逻辑并且在运行时通过API来执行类型转换。在Spring容器中，可以使用这个系统来作为`PropertyEditor`实现的替代方法，以将外部的bean属性值字符串转换为所需的属性类型。可以在应用程序中的任何需要类型转换的地方使用公共API。
+
+### 3.4.1. 转换器SPI
+
+SPI实现类型转换逻辑很简单，且类型严格，如以下接口定义所示：
+
+```java
+package org.springframework.core.convert.converter;
+
+public interface Converter<S, T> {
+
+    T convert(S source);
+}
+```
+
+为了创建自己的转换器，需要实现`Conterter`接口，`S`表示需要转换的类型，`T`表示转换后的类型。如果一个集合或数组`S`需要转换为一个集合或数组`T`，还需要注册一个委托集合或数组转换器（默认情况下`DefaultConversionService`会这样做），则可以透明的应用此类转换器。
+
+对于每次调用`convert(S)`,原始参数保证不能为null。用户的`Converter`在转换失败时可能抛出任何未检查异常。尤其是，它应该抛出一个IllegalArgumentException来报告无效的原始值。小心确保`Converter`的实现是线程安全的。
+
+在`core.convert.support`保重提供了一些方便的转换器实现。这些转换器包含了从字符串到数字和其他通用类型。下面列出了`StringToInteger`类，一个典型的`Converter`实现：
+
+```java
+
+```
