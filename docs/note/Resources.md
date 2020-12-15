@@ -1309,3 +1309,183 @@ public class AppConfig {
 ```
 
 注意，在Web应用程序中配置日期和时间格式时，还有其他注意事项。可以参考`WebMVC Conversion and Formatting`或`WebFlux Conversion and Formatting`。
+
+## 3.7. Java Bean 验证
+
+Spring提供`Java Bean Validation`API的支持：
+
+### 3.7.1. Bean 验证概述
+
+Bean验证通过约束Java应用程序的声明和元数据，提供了一个通用的验证方式。为了使用它，通过声明验证约束来注解领域模型属性，然后在运行时强制执行。这里有内置的约束，也可以自定义自己的约束。
+
+思考如下的例子，一个简单的`PersonForm`模型，带有两个属性：
+
+```java
+public class PersonForm {
+    private String name;
+    private int age;
+}
+```
+
+ 然后像下面一样，声明约束：
+
+```java
+public class PersonForm {
+
+    @NotNull
+    @Size(max=64)
+    private String name;
+
+    @Min(0)
+    private int age;
+}
+```
+
+一个bean校验器验证基于声明约束的实例。请参考通用`Bean Validation`的API。对于特定验证，参考`Hibernate Validator`文档。为了学习如何为Spring bean提供验证设置，请继续阅读。
+
+### 3.7.2. 配置一个Bean Validation Provider
+
+Spring对Bean Validation API提供了完全的支持，包括将bean验证提供程序作为Spring Bean进行引导。在应用程序中，在需要的地方，注入一个`javax.validation.ValidatorFactory`或`javax.validation.Validator`。
+
+可以使用`LocalValidatorFactoryBean`来配置一个作为Spring bean的默认校验器：
+
+```java
+import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
+
+@Configuration
+public class AppConfig {
+
+    @Bean
+    public LocalValidatorFactoryBean validator() {
+        return new LocalValidatorFactoryBean();
+    }
+}
+```
+
+在上面的例子中，通过使用默认引导机制，来触发初始化bean验证。一个Bean Validation提供这，例如Hibernate校验器，希望在classpath中存在并且它会被自动检测。
+
+**注入一个校验器**
+
+`LocalValidatorFactoryBean`实现了`javax.validation.ValidatorFactory`和`javax.validation.Validator`，以及Spring的`org.springframework.validation.Validator`。可以在需要校验逻辑的地方注入接口的引用。
+
+
+
+如果更喜欢直接使用Bean Validation API，可以注入一个`javax.validation.Validator`：
+
+```java
+import javax.validation.Validator;
+
+@Service
+public class MyService {
+
+    @Autowired
+    private Validator validator;
+}
+```
+
+如果需要Spring Validation API，可以注入一个`org.springframework.validation.Validator`引用：
+
+```java
+import org.springframework.validation.Validator;
+
+@Service
+public class MyService {
+
+    @Autowired
+    private Validator validator;
+}
+```
+
+**配置自定义约束**
+
+每个校验器约束包含两部分：
+
+* `@Constraint`注解用来声明约束和它的配置属性
+
+* 一个`javax.validation.ConstraintValidator`接口的实现，来约束行为
+
+要将声明与实现相关联，每个`@Constraint`注解引用一个相应的`ConstraintValidator`实现类。在运行时，在领域模型中遇到约束注解时，`ConstraintValidatorFactory`实例化被引用的实现。
+
+
+
+默认情况下，`LocalValidatorFactoryBean`配置一个`SpringConstraintValidatorFactory`，使用Spring来创建`ConstraintValiator`实例。让自定义的`ConstraintValidators`像其他任何Spring bean一样从依赖注入中受益。
+
+
+
+下面的例子展示了一个自定义`@Constraint`声明，后面跟着一个关联的`ConstraintValidator`实现，改实现使用Spring进行依赖注入：
+
+```java
+@Target({ElementType.METHOD, ElementType.FIELD})
+@Retention(RetentionPolicy.RUNTIME)
+@Constraint(validatedBy=MyConstraintValidator.class)
+public @interface MyConstraint {
+}
+```
+
+```java
+import javax.validation.ConstraintValidator;
+
+public class MyConstraintValidator implements ConstraintValidator {
+
+    @Autowired;
+    private Foo aDependency;
+
+    // ...
+}
+```
+
+**Spring驱动方法验证**
+
+通过Bean Validation 1.1,可以集成方法验证特性，在Spring上下文中，通过定义`MethodValidationPostProcessor`：
+
+```java
+import org.springframework.validation.beanvalidation.MethodValidationPostProcessor;
+
+@Configuration
+public class AppConfig {
+
+    @Bean
+    public MethodValidationPostProcessor validationPostProcessor() {
+        return new MethodValidationPostProcessor();
+    }
+}
+```
+
+为了有资格进行Spring驱动的方法验证，所有目标类都必须使用Spring的`@Validated`注解，该注解也可以选择声明要使用的验证组。参考`MethodValidationPostProcessor`，来设置Hibernate Validator和Bean Validation 1.1 Provider的细节。
+
+*方法验证依赖在目标类上的AOP 代理，即接口方法上的JDK动态代理或CGLIB代理。代理的使用存在某些限制，参考`Understanding AOP Proxies`。此外，请记住在代理类上始终使用方法和访问器(getter)，字段的直接访问将不起作用。*
+
+**附加的配置选项**
+
+默认`LocalValidatorFactoryBean`满足大多数场景。对于Bean Validation结构体，这里有很多可选的配置项，从消息插入到遍历解决。参考`LacalValidatorFactoryBean`文档获取更多信息。
+
+### 3.7.3. 配置一个`DataBinder`
+
+Spring3以后，可以通过`Validator`配置一个`DataBinder`。一旦配置了，可以通过调用`binder.validate()`来调用`Validator`。任何验证`Errors`会自动被加入到`BindingResult`。
+
+下面的例子展示了如何通过编程，使用`DataBinder`在绑定目标对象后，来调用验证逻辑。
+
+```java
+Foo target = new Foo();
+DataBinder binder = new DataBinder(target);
+binder.setValidator(new FooValidator());
+
+// bind to the target object
+binder.bind(propertyValues);
+
+// validate the target object
+binder.validate();
+
+// get BindingResult that includes any validation errors
+BindingResult results = binder.getBindingResult();
+```
+
+可以通过`dataBinder.addValidators`和`dataBinder.replaceValidators`为一个`DataBinder`配置多个`Validator`实例。当将全局配置的bean验证与`DataBinder`实例上本地配置的`Spring Validator`结合使用时，这很有用。请参阅`Spring MVC Validation Configuration`。
+
+### 3.7.4. Spring MVC 3 验证
+
+请参阅在Spring MVC 章节中的`Validation`。
+
+
+
+# 4. Spring 表达式语言（略）
