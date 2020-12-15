@@ -1033,3 +1033,279 @@ cs.convert(input,
 值类型的转换器可重用于数组和集合，因此，假设标准集合处理适当，则无需创建特定的转换器即可将S的集合转换为T的集合。
 
 ## 3.5. Spring字段格式化
+
+前面的部分讨论了通用目的类型转换系统。它提供了一个统一的`ConversionService`API和强类型的`Converter`SPI，用于实现从一种类型到另一种类型的转换逻辑。Spring容器使用这个系统来绑定bean属性值。此外，SpEL和`DataBinder`使用这个系统来绑定字段值。例如，当SpEL需要强制将`Short`转换为`Long`来完成一个`expression.setValue(Object bean,Object value)`时，`core.conver`系统将强制执行。
+
+现在考虑一个典型用户环境的类型转换需求，例如一个web或桌面程序。在这些环境中，通常从`String`转换为支持支持客户端回发过程，以及返回`String`以支持视图呈现过程。此外，经常需要本地化`String`值。更通用的`core.convert` `Converter`SPI不能直接满足此类格式要求。为了慢去他们，Spring3以后引入了一个方便的`Formatter`SPI，它为客户端提供了一个简单健壮的`PropertyEditor`的另一种实现。
+
+通常情况下，当需要实现通用目的的类型转换逻辑时，例如在`java.util.Date`和`Long`之间进行转换，可以使用`Converter`SPI。当需要结合客户端环境（例如一个web应用程序）并且需要解析和打印本地化字段值时，可以使用`Formatter`SPI。`ConversionService`为这两种SPIs提供了统一的类型转换API。
+
+### 3.5.1. `Formatter`SPI
+
+`Formatter`SPI用来实现非常简单的字段格式化逻辑和严格类型。下面展示了`Formatter`接口的定义：
+
+```java
+package org.springframework.format;
+
+public interface Formatter<T> extends Printer<T>, Parser<T> {
+}
+```
+
+`Formatter`从`Printer`和`Parse`构建快接口扩展。下面列出了这两个接口的定义：
+
+```java
+public interface Printer<T> {
+
+    String print(T fieldValue, Locale locale);
+}
+```
+
+```java
+import java.text.ParseException;
+
+public interface Parser<T> {
+
+    T parse(String clientValue, Locale locale) throws ParseException;
+}
+```
+
+为了创建自定义的`Formatter`，需要实现`Formatter`接口。参数类型`T`表示要格式化的对象类型，例如`java.util.Date`。为了在本地客户端显示，实现`print()`用来打印`T`的实例。实现`parse()`操作，以从客户端语言环境返回的格式化表示形式解析`T`的实例。如果解析失败，`Formatter`应该抛出一个`ParseException`或一个`IllegalArgumentException`。确保`Formatter`实现是线程安全的。
+
+`format`子包提供一系列方便的`Formatter`实现。`number`包提供了`NumberStyleFormatter`，`CurrencyStyleFormatter`,`PercentStyleFormatter`来格式化`Number`对象。`datetime`包提供的一个`DateFormatter`来格式化`java.util.Date`对象。
+
+下面是`DateFormatter`的例子：
+
+```java
+package org.springframework.format.datetime;
+
+public final class DateFormatter implements Formatter<Date> {
+
+    private String pattern;
+
+    public DateFormatter(String pattern) {
+        this.pattern = pattern;
+    }
+
+    public String print(Date date, Locale locale) {
+        if (date == null) {
+            return "";
+        }
+        return getDateFormat(locale).format(date);
+    }
+
+    public Date parse(String formatted, Locale locale) throws ParseException {
+        if (formatted.length() == 0) {
+            return null;
+        }
+        return getDateFormat(locale).parse(formatted);
+    }
+
+    protected DateFormat getDateFormat(Locale locale) {
+        DateFormat dateFormat = new SimpleDateFormat(this.pattern, locale);
+        dateFormat.setLenient(false);
+        return dateFormat;
+    }
+}
+```
+
+Spring团队欢迎社区驱动的`Formatter`贡献。
+
+### 3.5.2. 注解驱动的格式化
+
+可以通过字段属性或注解配置字段格式化。为了绑定注解到`Formatter`上，需要实现`AnnotationFormatterFactory`。下面展示了`AnnotationFormatterFactory`接口的定义：
+
+```java
+package org.springframework.format;
+
+public interface AnnotationFormatterFactory<A extends Annotation> {
+
+    Set<Class<?>> getFieldTypes();
+
+    Printer<?> getPrinter(A annotation, Class<?> fieldType);
+
+    Parser<?> getParser(A annotation, Class<?> fieldType);
+}
+```
+
+要创建一个实现：参数化A是需要链接格式化逻辑的注解类型字段-例如，`org.springframework.format.annotation.DateTimeFormat`。`getFieldTypes()`返回使用注解字段的类型。`getPrinter()`返回一个`Printer`来打印注解字段的值。`getParser()`返回一个`Parser`来解析注解字段的`clientValue`。
+
+
+
+下面的例子是绑定了`@NumberFormat`注解的`AnnotationFormatterFactory`的实现，用来指定数字样式或模式：
+
+```java
+public final class NumberFormatAnnotationFormatterFactory
+        implements AnnotationFormatterFactory<NumberFormat> {
+
+    public Set<Class<?>> getFieldTypes() {
+        return new HashSet<Class<?>>(asList(new Class<?>[] {
+            Short.class, Integer.class, Long.class, Float.class,
+            Double.class, BigDecimal.class, BigInteger.class }));
+    }
+
+    public Printer<Number> getPrinter(NumberFormat annotation, Class<?> fieldType) {
+        return configureFormatterFrom(annotation, fieldType);
+    }
+
+    public Parser<Number> getParser(NumberFormat annotation, Class<?> fieldType) {
+        return configureFormatterFrom(annotation, fieldType);
+    }
+
+    private Formatter<Number> configureFormatterFrom(NumberFormat annotation, Class<?> fieldType) {
+        if (!annotation.pattern().isEmpty()) {
+            return new NumberStyleFormatter(annotation.pattern());
+        } else {
+            Style style = annotation.style();
+            if (style == Style.PERCENT) {
+                return new PercentStyleFormatter();
+            } else if (style == Style.CURRENCY) {
+                return new CurrencyStyleFormatter();
+            } else {
+                return new NumberStyleFormatter();
+            }
+        }
+    }
+}
+```
+
+为了触发格式化，可以在字段上使用`@NumberFormat`：
+
+```java
+public class MyModel {
+
+    @NumberFormat(style=Style.CURRENCY)
+    private BigDecimal decimal;
+}
+```
+
+**格式化注解API**
+
+在`org.springframework.format.annotation`包中已经存在了一个方便的注解。可以使用`@NumberFormat`来格式化`Number`字段，例如`Double`和`Long`，`@DateTimeFormat`来格式化`java.util.Date`，`java.util.Calendar`，`Long`以及JSR-310`java.time`。
+
+下面的例子使用`@DateTimeFormat`来格式化`java.util.Date`作为ISO日期（yyyy-MM-dd）：
+
+```java
+public class MyModel {
+
+    @DateTimeFormat(iso=ISO.DATE)
+    private Date date;
+}
+```
+
+### 3.5.3. `FormatterRegistry`SPI
+
+`FormatterRegistry`是一个注册了的格式化和转换器的SPI。`FormattingConversionService`实现了`FormatterRegistry`来匹配大多数环境。通过编程或声明来配置多种Spring bean。例如，通过使用`FormattingConversionServiceFactoryBean`。因为这个实现也实现了`ConversionService`，可以直接使用`DataBinder`和SpEL来直接配置。
+
+下面列出了`FormatterRegistry`SPI：
+
+```java
+package org.springframework.format;
+
+public interface FormatterRegistry extends ConverterRegistry {
+
+    void addFormatterForFieldType(Class<?> fieldType, Printer<?> printer, Parser<?> parser);
+
+    void addFormatterForFieldType(Class<?> fieldType, Formatter<?> formatter);
+
+    void addFormatterForFieldType(Formatter<?> formatter);
+
+    void addFormatterForAnnotation(AnnotationFormatterFactory<?> factory);
+}
+```
+
+像之前展示的，可以注册通过字段类型或注解来注册格式化器。
+
+`FormatterRegistry` SPI让用户配置中心化的格式化规则，而不是在controllers之间重复这些配置。例如，可能想要强制所有日期字段被格式化成，或通过指定注解来格式化。通过共享`FormatterRegistry`，可以只定义一次规则，在任何需要格式化的时候应用他们。
+
+### 3.5.4. `FormatterRegistrar` SPI
+
+`FormatterRegistrar`是一个通过`FormatterRegistry`用来注册格式化器和专户亲戚的SPI。下面列出了他的接口定义：
+
+```java
+package org.springframework.format;
+
+public interface FormatterRegistrar {
+
+    void registerFormatters(FormatterRegistry registry);
+}
+```
+
+当为给定的转换类别注册多种相关的转换器和格式化器时，`FormatterRegistrar`非常有用，例如日志格式化。在声明式注册不足的情况下，它也非常有用-例如，当一个格式化器需要在不同于其自身`<T>`的特定字段类型下进行索引时，或者在注册`Printer/Parser`对时。下一部分提供了转换器和格式化注册的更多信息。
+
+### 3.5.5. 在Spring MVC中配置格式化
+
+查看Spring MVC章节中的`Conversion and Formatting`。
+
+## 3.6. 配置全局日期和时间格式化
+
+默认情况下，使用`DateFormat.SHORT`样式从字符串转换未使用`@DateTimeFormat`注释的日期和时间字段。如果愿意，可以通过定义自己全局的格式来更改此设置。
+
+为此，确保Spring没有注册默认的格式化器。相反，可以借助一下手法注册格式化器：
+
+* `org.springframework.format.datetime.standard.DateTimeFormatterRegistra`
+
+* `org.springframework.format.datetime.DateFormatterRegistrar`
+
+例如，下面注册了一个全局`yyyyMMdd`：
+
+```java
+@Configuration
+public class AppConfig {
+
+    @Bean
+    public FormattingConversionService conversionService() {
+
+        // Use the DefaultFormattingConversionService but do not register defaults
+        DefaultFormattingConversionService conversionService = new DefaultFormattingConversionService(false);
+
+        // Ensure @NumberFormat is still supported
+        conversionService.addFormatterForFieldAnnotation(new NumberFormatAnnotationFormatterFactory());
+
+        // Register JSR-310 date conversion with a specific global format
+        DateTimeFormatterRegistrar registrar = new DateTimeFormatterRegistrar();
+        registrar.setDateFormatter(DateTimeFormatter.ofPattern("yyyyMMdd"));
+        registrar.registerFormatters(conversionService);
+
+        // Register date conversion with a specific global format
+        DateFormatterRegistrar registrar = new DateFormatterRegistrar();
+        registrar.setFormatter(new DateFormatter("yyyyMMdd"));
+        registrar.registerFormatters(conversionService);
+
+        return conversionService;
+    }
+}
+```
+
+如果更喜欢XML配置，可以使用`FormattingConversionServiceFactoryBean`:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="
+        http://www.springframework.org/schema/beans
+        https://www.springframework.org/schema/beans/spring-beans.xsd>
+
+    <bean id="conversionService" class="org.springframework.format.support.FormattingConversionServiceFactoryBean">
+        <property name="registerDefaultFormatters" value="false" />
+        <property name="formatters">
+            <set>
+                <bean class="org.springframework.format.number.NumberFormatAnnotationFormatterFactory" />
+            </set>
+        </property>
+        <property name="formatterRegistrars">
+            <set>
+                <bean class="org.springframework.format.datetime.standard.DateTimeFormatterRegistrar">
+                    <property name="dateFormatter">
+                        <bean class="org.springframework.format.datetime.standard.DateTimeFormatterFactoryBean">
+                            <property name="pattern" value="yyyyMMdd"/>
+                        </bean>
+                    </property>
+                </bean>
+            </set>
+        </property>
+    </bean>
+</beans>
+```
+
+注意，在Web应用程序中配置日期和时间格式时，还有其他注意事项。可以参考`WebMVC Conversion and Formatting`或`WebFlux Conversion and Formatting`。
