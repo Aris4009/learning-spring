@@ -9,6 +9,10 @@ public class Service {
 
 	private Logger log = LoggerFactory.getLogger(this.getClass());
 
+	public Service() {
+		log.info("初始化");
+	}
+
 	public void sayNothing() {
 		log.info("{}", "nothing");
 	}

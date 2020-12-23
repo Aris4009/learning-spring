@@ -1,6 +1,8 @@
 package com.example.demo._5_4_2;
 
 import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.Set;
 
@@ -8,6 +10,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Configurable;
 import org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory;
+import org.springframework.beans.factory.support.AbstractBeanFactory;
 import org.springframework.beans.factory.support.DefaultListableBeanFactory;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ConfigurableApplicationContext;
@@ -24,13 +27,14 @@ public class AppConfig {
 
 	private static Logger log = LoggerFactory.getLogger(AppConfig.class);
 
-	public static void main(String[] args) throws IllegalAccessException {
+	public static void main(String[] args) throws IllegalAccessException, InvocationTargetException {
 		int code = 1;
 		AnnotationConfigApplicationContext context = init(code);
 		if (context == null) {
 			return;
 		}
-		printBeanDefinitions(context);
+//		printAbstractBeanFactoryMethod(context, "transformedBeanName", new Object[] { "&&haha" });
+//		printBeanDefinitions(context);
 //		printDefaultEnvironmentBeans(context);
 //		printIgnoreDependencyInterface(context);
 //		log.info("{}", context.getClassLoader());
@@ -174,5 +178,31 @@ public class AppConfig {
 		 * com.example.demo._5_4_2.Service sayNothing(13): nothing 2020-12-22
 		 * 18:15:43,185 INFO [main] com.example.demo._5_4_2.AppConfig main(44): false
 		 */
+	}
+
+	/**
+	 * 打印一些AbstractBeanFactoryMethod的方法
+	 * 
+	 * @param context 应用程序航下文
+	 * @param method  需要打印的方法
+	 * @param arg     反射方法调用参数
+	 */
+	public static void printAbstractBeanFactoryMethod(ConfigurableApplicationContext context, String method,
+			Object... arg) throws InvocationTargetException, IllegalAccessException {
+		if (context == null || method == null) {
+			return;
+		}
+		DefaultListableBeanFactory beanFactory = (DefaultListableBeanFactory) context.getBeanFactory();
+		Class<AbstractBeanFactory> clazz = (Class<AbstractBeanFactory>) beanFactory.getClass().getSuperclass()
+				.getSuperclass();
+		Method[] methods = clazz.getDeclaredMethods();
+		for (Method m : methods) {
+			m.setAccessible(true);
+			if (m.getName().equals(method)) {
+				log.info("{}", m.getName());
+				Object obj = m.invoke(beanFactory, arg);
+				log.info("{}", JSON.toJSONString(obj));
+			}
+		}
 	}
 }
