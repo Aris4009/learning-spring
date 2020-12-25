@@ -1,0 +1,564 @@
+@startuml
+class AnnotationConfigApplicationContext{
+   AnnotatedBeanDefinitionReader reader
+   ClassPathBeanDefinitionScanner scanner
+}
+AnnotatedBeanDefinitionReader <-- AnnotationConfigApplicationContext
+ClassPathBeanDefinitionScanner <-- AnnotationConfigApplicationContext
+GenericApplicationContext <|-- AnnotationConfigApplicationContext
+AnnotationConfigRegistry <|-- AnnotationConfigApplicationContext
+
+interface AnnotationConfigRegistry
+
+class GenericApplicationContext{
+ DefaultListableBeanFactory beanFactory
+}
+AbstractApplicationContext <|-- GenericApplicationContext
+BeanDefinitionRegistry <|-- GenericApplicationContext
+DefaultListableBeanFactory <-- GenericApplicationContext
+
+abstract AbstractApplicationContext
+DefaultResourceLoader <|-- AbstractApplicationContext
+ConfigurableApplicationContext <|-- AbstractApplicationContext
+
+interface ConfigurableApplicationContext
+ApplicationContext <|-- ConfigurableApplicationContext
+Lifecycle <|-- ConfigurableApplicationContext
+
+interface Lifecycle
+
+interface ApplicationContext
+EnvironmentCapable <|-- ApplicationContext
+ListableBeanFactory <|-- ApplicationContext
+HierarchicalBeanFactory <|-- ApplicationContext
+MessageSource <|-- ApplicationContext
+ApplicationEventPublisher <|-- ApplicationContext
+ResourcePatternResolver <|-- ApplicationContext
+
+interface EnvironmentCapable
+interface MessageSource
+interface ApplicationEventPublisher
+interface ResourcePatternResolver
+ResourceLoader <|-- ResourcePatternResolver
+
+class DefaultResourceLoader{
+ ClassLoader classLoader
+}
+ClassLoader <.. DefaultResourceLoader
+ResourceLoader <|-- DefaultResourceLoader
+abstract ClassLoader
+
+interface ResourceLoader
+
+class DefaultListableBeanFactory
+AbstractAutowireCapableBeanFactory <|-- DefaultListableBeanFactory
+ConfigurableListableBeanFactory <|-- DefaultListableBeanFactory
+BeanDefinitionRegistry <|-- DefaultListableBeanFactory
+
+interface ConfigurableListableBeanFactory
+ListableBeanFactory <|-- ConfigurableListableBeanFactory
+AutowireCapableBeanFactory <|-- ConfigurableListableBeanFactory
+ConfigurableBeanFactory <|-- ConfigurableListableBeanFactory
+
+interface ListableBeanFactory
+BeanFactory <|-- ListableBeanFactory
+
+abstract AbstractAutowireCapableBeanFactory
+AbstractBeanFactory <|-- AbstractAutowireCapableBeanFactory
+AutowireCapableBeanFactory <|-- AbstractAutowireCapableBeanFactory
+
+interface AutowireCapableBeanFactory
+BeanFactory <|-- AutowireCapableBeanFactory
+
+abstract AbstractBeanFactory{
+    BeanFactory parentBeanFactory
+}
+FactoryBeanRegistrySupport <|-- AbstractBeanFactory
+ConfigurableBeanFactory <|-- AbstractBeanFactory
+BeanFactory <.. AbstractBeanFactory
+
+interface ConfigurableBeanFactory
+HierarchicalBeanFactory <|-- ConfigurableBeanFactory
+SingletonBeanRegistry <|-- ConfigurableBeanFactory
+
+interface HierarchicalBeanFactory
+BeanFactory <|-- HierarchicalBeanFactory
+interface BeanFactory{
++String FACTORY_BEAN_PREFIX = "&";
++Object getBean(String name) throws BeansException
++<T> T getBean(String name, Class<T> requiredType) throws BeansException
++Object getBean(String name, Object... args) throws BeansException
++<T> T getBean(Class<T> requiredType) throws BeansException
++<T> T getBean(Class<T> requiredType, Object... args) throws BeansException
++<T> ObjectProvider<T> getBeanProvider(Class<T> requiredType)
++<T> ObjectProvider<T> getBeanProvider(ResolvableType requiredType)
++boolean containsBean(String name)
++boolean isSingleton(String name) throws NoSuchBeanDefinitionException
++boolean isPrototype(String name) throws NoSuchBeanDefinitionException
++boolean isTypeMatch(String name, ResolvableType typeToMatch) throws NoSuchBeanDefinitionException
++Class<?> getType(String name) throws NoSuchBeanDefinitionException
++Class<?> getType(String name, boolean allowFactoryBeanInit) throws NoSuchBeanDefinitionException
++String[] getAliases(String name)
+}
+note right of BeanFactory::FACTORY_BEAN_PREFIX
+用来取消引用FactoryBean实例，并且将其与FactoryBean创建的
+bean区分开来
+end note
+note right of BeanFactory::"getBean(String name)"
+返回特定bean的实例，这个实例可能是一个共享的或独立的。
+这个方法允许使用一个Spring BeanFactory来替代单例或原型设计模式。
+对于单例bean，调用者可以保留对返回对象的引用。
+
+将别名转换为相应规范的bean name
+
+如果在这个工厂实例中没有找到bean，将会向parent factory请求。
+end note
+note right of BeanFactory::"getBean(String name, Class<T> requiredType)"
+与getBean(String)的行为一样，但是如果bean不是要求的类型，则通过抛出
+BeanNotOfRequiredTypeException来提供类型安全性的度量。这意味着在正确地结果转换
+中，不会抛出ClassCastException，但是getBean(String)会抛出这个异常。
+end note
+note right of BeanFactory::"getBean(String name, Object... args)"
+允许指定明确的构造器参数或工厂方法参数，来覆盖在bean definition中默认的参数
+end note
+note right of BeanFactory::"getBean(Class<T> requiredType)"
+返回通过指定对象的类型的唯一bean实例。
+该方法进入ListableBeanFactory,按类型范围查找，但也可以根据给定类的名称
+转换为常规的按名称查找。对于跨bean集的更广泛的检索操作，请使用该方法进入ListableBeanFactory
+和/或BeanFactoryUtils
+end note
+note right of BeanFactory::"getBean(Class<T> requiredType, Object... args)"
+允许指定构造器参数/工厂方法参数来覆盖默认参数
+end note
+note right of BeanFactory::"getBeanProvider(Class<T> requiredType)"
+为特定bean提供一个provider，以允许按需延迟检索实例，包括可用性和唯一性选项
+end note
+note right of BeanFactory::"getBeanProvider(ResolvableType requiredType)"
+requiredType-bean必须匹配的类型；可以是一个泛型类型声明。注意，与反射性注入点相比，
+此处不支持集合类型。为了以编程方式检索与特定类型匹配的bean列表，请在此处指定实际
+bean类型作为参数，然后使用ObjectProvicer.orderedStream()或他的延迟流/迭代选项。
+end note
+note right of BeanFactory::containsBean
+这个bean factory是否包含指定名称的bean definition或外部注册的单例实例？
+如果指定名称是一个别名，它将会在被转换为规范的bean name。
+如果这个工厂是hierarchical，如果没有找到bean，则将向parent factory询问
+end note
+note right of BeanFactory::isSingleton
+这个bean是共享单例吗？也就是说，getBean总是返回相同实例吗？
+注意：这个方法返回false，没有清楚地表明它是一个独立实例。它表明了这是一个非单例实例，
+也可以对应于作用域bean。使用isPrototype操作来明确地检查独立实例。
+end note
+note right of BeanFactory::isPrototype
+这个bean实例是一个prototype吗？也就是说，getBean总是返回独立的实例？
+注意：这个方法返回false，没有清楚的表示它是一个非独立实例，它也可以对应于作用域bean。
+使用isSingleton操作来明确地检查共享单例实例。
+end note
+note right of BeanFactory::isTypeMatch
+end note
+note right of BeanFactory::getType
+返回指定名称的bean类型
+end note
+note right of BeanFactory::"getType(String name, boolean allowFactoryBeanInit)"
+返回指定名称的bean类型。
+end note
+note right of BeanFactory::getAliases
+返回指定bean名称的别名
+end note
+note left of BeanFactory
+访问一个Spring bean容器的root接口
+这是一个bean容器的基础客户端视图；
+诸如ListableBeanFactory、ConfigurableBeanFactory之类的
+接口可用于特殊的目的。
+此接口由包含许多bean definitions的对象实现，每个bean definition都
+由一个String名称唯一标识。根据bean definition，工厂
+将返回所包含对象的独立实例（Prototype设计模式）或单个共享实例（Singleton设置模式
+的替代方案，其中实例是作用域工厂中的单例）。返回实例的类型
+依赖于bean factory的配置：API是相同的。
+
+该方法的重点是，BeanFactory是应用程序组件的中心注册表，
+并且集中了应用程序组件的配置（不再需要单个对象读取属性文件）
+
+需要注意的是，最好依靠依赖注入（"push"配置）通过setters或构造器
+配置应用程序对象，而不是使用任何形式的"pull"配置例如BeanFactory lookup。
+Spring的依赖注入功能是使用此接口及子接口实现的。
+
+通常，一个BeanFactory会载入存储在配置源（例如一个XML文档）中的bean definitions，
+并且使用org.springframework.beans包来配置bean。但是，实现可以
+根据需要直接在Java代码中返回它创建的对象。这里没有限制bean definitions
+保存的形式：LDAP,RDBMS,XML,properties文件等等。鼓励实现支持bean
+之间的引用（依赖注入）。
+
+与ListableBeanFactory中的方法相比，这个接口里所有的方法会检查
+parent factories，如果这是一个HierarchicalBeanFactory。如果
+在工厂实例中未找到bean，parent factory会立即被询问。在这个工厂
+实例中的bean，支持覆盖在任何parent factory中具有相同名字的bean。
+
+Bean factory的实现应尽可能地支持标准bean声明周期接口。全套初始化
+方法及其标准顺序是：
+1.BeanNameAware's setBeanName
+2.BeanNameAware's setBeanName
+3.BeanNameAware's setBeanName
+4.EnvironmentAware's setEnvironment
+5.EmbeddedValueResolverAware's setEmbeddedValueResolver
+6.ResourceLoaderAware's setResourceLoader (only applicable when running in an application context)
+7.ApplicationEventPublisherAware's setApplicationEventPublisher (only applicable when running in an application context)
+8.MessageSourceAware's setMessageSource (only applicable when running in an application context)
+9.ApplicationContextAware's setApplicationContext (only applicable when running in an application context)
+10.ServletContextAware's setServletContext (only applicable when running in a web application context)
+11.postProcessBeforeInitialization methods of BeanPostProcessors
+12.InitializingBean's afterPropertiesSet
+13.a custom init-method definition
+14.postProcessAfterInitialization methods of BeanPostProcessors
+
+在bean factory关闭时，以下声明周期方法适用：
+1.postProcessBeforeDestruction methods of DestructionAwareBeanPostProcessors
+2.DisposableBean's destroy
+3.a custom destroy-method definition
+end note
+
+abstract FactoryBeanRegistrySupport{
+-final Map<String, Object> factoryBeanObjectCache = new ConcurrentHashMap<>(16)
+#Class<?> getTypeForFactoryBean(FactoryBean<?> factoryBean)
+#Object getCachedObjectForFactoryBean(String beanName)
+#Object getObjectFromFactoryBean(FactoryBean<?> factory, String beanName, boolean shouldPostProcess)
+#Object doGetObjectFromFactoryBean(FactoryBean<?> factory, String beanName) throws BeanCreationException
+#bject postProcessObjectFromFactoryBean(Object object, String beanName) throws BeansException
+#FactoryBean<?> getFactoryBean(String beanName, Object beanInstance) throws BeansException
+#protected void removeSingleton(String beanName)
+#protected void clearSingletonCache()
+#AccessControlContext getAccessControlContext()
+}
+DefaultSingletonBeanRegistry <|-- FactoryBeanRegistrySupport
+note left of FactoryBeanRegistrySupport
+支持需要处理FactoryBean实例的单例注册表的基类，集成了DefaultSingletonBeanRegistry的
+单例管理功能
+end note
+note right of FactoryBeanRegistrySupport::factoryBeanObjectCache
+缓存通过FactoryBean创建的打你对象：FactoryBean name到对象的映射
+end note
+note right of FactoryBeanRegistrySupport::"getTypeForFactoryBean(FactoryBean<?> factoryBean)"
+确定指定FactoryBean的类型
+end note
+note right of FactoryBeanRegistrySupport::"getCachedObjectForFactoryBean(String beanName)"
+用指定的FactoryBean，从缓存中获取对象。
+end note
+note right of FactoryBeanRegistrySupport::getObjectFromFactoryBean
+用指定的FactoryBean获取一个对象
+end note
+note right of FactoryBeanRegistrySupport::doGetObjectFromFactoryBean
+用指定的FactoryBean获取一个对象
+end note
+note right of FactoryBeanRegistrySupport::postProcessObjectFromFactoryBean
+对从指定FactoryBean获取的对象进行后处理。将结果暴露给bean引用。
+end note
+note right of FactoryBeanRegistrySupport::getFactoryBean
+如果可能，根据指定bean获取一个FactoryBean
+end note
+note right of FactoryBeanRegistrySupport::removeSingleton
+覆盖了清除FactoryBean对象缓存
+end note
+note right of FactoryBeanRegistrySupport::clearSingletonCache
+覆盖了清除FactoryBean对象缓存
+end note
+note right of FactoryBeanRegistrySupport::getAccessControlContext
+返回这个bean factory的安全的上下文。
+end note
+
+class DefaultSingletonBeanRegistry{
+-static final int SUPPRESSED_EXCEPTIONS_LIMIT = 100
+-final Map<String, Object> singletonObjects = new ConcurrentHashMap<>(256)
+-final Map<String, ObjectFactory<?>> singletonFactories = new HashMap<>(16)
+-final Map<String, Object> earlySingletonObjects = new ConcurrentHashMap<>(16)
+-final Set<String> registeredSingletons = new LinkedHashSet<>(256)
+-final Set<String> singletonsCurrentlyInCreation = Collections.newSetFromMap(new ConcurrentHashMap<>(16))
+-final Set<String> inCreationCheckExclusions = Collections.newSetFromMap(new ConcurrentHashMap<>(16))
+-Set<Exception> suppressedExceptions
+-boolean singletonsCurrentlyInDestruction = false
+-final Map<String, Object> disposableBeans = new LinkedHashMap<>()
+-final Map<String, Set<String>> containedBeanMap = new ConcurrentHashMap<>(16)
+-final Map<String, Set<String>> dependentBeanMap = new ConcurrentHashMap<>(64)
+-final Map<String, Set<String>> dependenciesForBeanMap = new ConcurrentHashMap<>(64)
+}
+SimpleAliasRegistry <|-- DefaultSingletonBeanRegistry
+SingletonBeanRegistry <|-- DefaultSingletonBeanRegistry
+note left of DefaultSingletonBeanRegistry
+共享bean实例的通用注册表，实现了SingletonBeanRegistry。
+允许注册单例实例，所有注册表的调用通过bean名称这都应该共享该实例。
+为了在注册表关闭时销毁bean，也支持DisposableBean实例的注册，（可能与已注册的单例相对应，也可能不对应）。
+这个类主要作为org.springframework.beans.factory.BeanFactory实现的基类，
+从而排除了单例bean实例的常见管理。注意，org.springframework.beans.factory.config.ConfigurableBeanFactory
+接口扩展了SingletonBeanRegistry接口。
+注意，与AbstractBeanFactory和DefaultListableBeanFactory(从其继承)相比，
+此类既不假设bean definition定义概念也不为bean实例指定创建过程。可以作为
+委托的嵌套帮助器。
+end note
+note right of DefaultSingletonBeanRegistry::SUPPRESSED_EXCEPTIONS_LIMIT
+保留的最大异常数
+end note
+note right of DefaultSingletonBeanRegistry::singletonObject
+缓存单例对象，bean name到bean实例的映射
+end note
+note right of DefaultSingletonBeanRegistry::singletonFactories
+缓存单例工厂；bean name到ObjectFactory的映射
+end note
+note right of DefaultSingletonBeanRegistry::earlySingletonObjects
+缓存单例对象；bean name到bean实例的映射
+end note
+note right of DefaultSingletonBeanRegistry::registeredSingletons
+已注册单例的集合，包括按顺序注册的bean names。
+end note
+note right of DefaultSingletonBeanRegistry::singletonsCurrentlyInCreation
+当前正在创建的bean name的集合
+end note
+note right of DefaultSingletonBeanRegistry::inCreationCheckExclusions
+当前从创建检查中排除的bean names
+end note
+note right of DefaultSingletonBeanRegistry::suppressedExceptions
+异常集合，用于关联相关原因
+end note
+note right of DefaultSingletonBeanRegistry::singletonsCurrentlyInDestruction
+指示是否在destroySingletons中的标志位
+end note
+note right of DefaultSingletonBeanRegistry::disposableBeans
+一次性bean实例；bean name到一次性实例的映射
+end note
+note right of DefaultSingletonBeanRegistry::containedBeanMap
+bean名称包含bean名称集的映射
+end note
+note right of DefaultSingletonBeanRegistry::dependentBeanMap
+bean名称依赖bean名称集的映射
+end note
+note right of DefaultSingletonBeanRegistry::dependenciesForBeanMap
+在相关的bean名称之间映射：bean名称到bean依赖项的bean名称集
+end note
+
+class SimpleAliasRegistry{
+-private Map<String, String> aliasMap = new ConcurrentHashMap<>(16)
+}
+AliasRegistry <|-- SimpleAliasRegistry
+note top of SimpleAliasRegistry
+接口AliasRegistry接口的简单实现
+end note
+note left of SimpleAliasRegistry::aliasMap
+规范名称到别名的映射
+end note
+
+interface SingletonBeanRegistry{
++void registerSingleton(String beanName, Object singletonObject)
++Object getSingleton(String beanName)
++boolean containsSingleton(String beanName)
++String[] getSingletonNames()
++int getSingletonCount()
++Object getSingletonMutex()
+}
+note left of SingletonBeanRegistry
+为共享bean实例定义的一个接口。通过org.springframework.beans.BeanFactory的实现，
+以便以统一管理的方式公开其单例管理功能
+end note
+note right of SingletonBeanRegistry::registerSingleton
+在注册表中注册一个给定的已存在的对象作为单例。
+给定的实例应该被完全初始化；注册表不会执行任何初始化回调（特别是，它不会调用
+InitializingBean的afterPropertiesSet方法）。这个实例也不会接受
+任何销毁回调（例如DisposableBean的destroy方法）。
+在完整的BeanFactory中运行时：如果bean应该接收初始化或销毁回调，请
+注册一个bean definition,而不是现有实例。
+通常，调用发生在注册配置时，但是也可以在运行时注册单例。因此，注册表实现
+应该是同步的单例访问；如果它支持BeanFactory的单例延迟初始化，则无论如何
+都应该这样做。
+end note
+note right of SingletonBeanRegistry::getSingleton
+通过名称返回已注册的单例对象的原始类型。
+只检查已经实例化的单例；对于还没有实例化的单例bean definition，不会返回该对象。
+这个方法的主要目的是用来手动访问已注册的单例。也可以用于以原始方式访问
+已创建的bean definition定义的单例。
+注意：这个查找方法不能识别FactoryBean前缀或别名。应该在获取单例实例之前，
+将其解析为规范的bean名称。
+end note
+note right of SingletonBeanRegistry::containsSingleton
+通过指定名称，检查该注册表中是否存在该单例对象。
+只能检查已经实例化的单例；如果单例bean还没有实例化，不会返回true。
+这个方法的主要目的是用来手工检查已注册的单例。也可以用来检查通过bean
+definition定义的单例是否已经被创建。
+为了检查一个bean factory是否包含指定名称的bean 定义，请使用
+ListableBeanFactory的containsBeanDefinition方法。调用
+containsBeanDefinition和containsSingleton都会回答指定的bean
+工厂是否包含给定名称的本地bean实例。
+使用BeanFactory的containsBean方法通常为了检查该工厂是否知道
+指定名称的bean(无论手动注册的单例实例或通过bean definition创建的)，
+也可以用来检查祖先工厂。
+注意：这个查找方法不能识别FactoryBean前缀或别名。应该在检查单例状态之前，
+将其解析为规范的bean名称。
+end note
+note right of SingletonBeanRegistry::getSingletonNames
+返回该注册表中已经注册的单例bean的名称。
+只能检查已经实例化的单例；不能在还有实例化之前返回名称。
+这个方法的主要目的是用来手动检查已经注册的单例。也可以用来检查祖先工厂已经创建的单例。
+end note
+note right of SingletonBeanRegistry::getSingletonCount()
+返回此注册表中已经注册的单例数量。
+只能用来检查已经实例化的单例；不能对还没有创建的单例进行计数。
+end note
+note right of SingletonBeanRegistry::getSingletonMutex
+返回此注册表使用的单例互斥体（对于外部协作者）
+end note
+
+interface AliasRegistry{
+   	void registerAlias(String name, String alias)
+   	void removeAlias(String alias)
+   	boolean isAlias(String name)
+   	String[] getAliases(String name)
+}
+note top of AliasRegistry
+管理别名的通用接口。是
+org.springframework.beans.factory.support.BeanDefinitionRegistry
+的超级接口
+end note
+note right of AliasRegistry::registerAlias
+给定名称，为其注册一个别名
+end note
+note right of AliasRegistry::removeAlias
+从注册表中删除指定的别名
+end note
+note right of AliasRegistry::isAlias
+检查给定名称是否是别名
+end note
+note right of AliasRegistry::getAliases
+返回给定名称的所有别名
+end note
+
+class AnnotatedBeanDefinitionReader{
+  BeanDefinitionRegistry registry
+  BeanNameGenerator beanNameGenerator
+  ScopeMetadataResolver scopeMetadataResolver
+  ConditionEvaluator conditionEvaluator
+}
+BeanDefinitionRegistry <-- AnnotatedBeanDefinitionReader
+BeanNameGenerator <-- AnnotatedBeanDefinitionReader
+AnnotationBeanNameGenerator <-- AnnotatedBeanDefinitionReader
+ScopeMetadataResolver <-- AnnotatedBeanDefinitionReader
+AnnotationScopeMetadataResolver <-- AnnotatedBeanDefinitionReader
+ConditionEvaluator <-- AnnotatedBeanDefinitionReader
+
+interface BeanDefinitionRegistry{
+void registerBeanDefinition(String beanName, BeanDefinition beanDefinition)
+void removeBeanDefinition(String beanName)
+BeanDefinition getBeanDefinition(String beanName)
+boolean containsBeanDefinition(String beanName)
+String[] getBeanDefinitionNames()
+int getBeanDefinitionCount()
+boolean isBeanNameInUse(String beanName)
+}
+note left of BeanDefinitionRegistry
+包含bean definitions的注册表接口，例如RootBeanDefinition、
+ChildBeanDefinition。通常由内部与AbstractBeanDefinition层次
+结构一起工作的BeanFactories实现。例如：DefaultListableBeanFactory
+实现了该接口。
+end note
+note right of BeanDefinitionRegistry::registerBeanDefinition
+通过该注册表，注册一个新的bean definition。
+必须支持RootBeanDefinition
+和ChildBeanDefinition
+end note
+note right of BeanDefinitionRegistry::removeBeanDefinition
+删除指定名称的bean definition
+end note
+note right of BeanDefinitionRegistry::getBeanDefinition
+返回指定名称的BeanDefinition
+end note
+note right of BeanDefinitionRegistry::containsBeanDefinition
+检查注册表是否包含指定名称的bean definition
+end note
+note right of BeanDefinitionRegistry::getBeanDefinitionNames
+返回定义在该注册表中的所有bean的名字
+end note
+note right of BeanDefinitionRegistry::getBeanDefinitionCount
+返回在注册表中定义的beans的数量
+end note
+note right of BeanDefinitionRegistry::isBeanNameInUse
+确认在该注册表中，指定的bean 给定名称是否已经被使用
+end note
+
+interface AliasRegistry
+AliasRegistry <|-- BeanDefinitionRegistry
+
+interface BeanNameGenerator
+class AnnotationBeanNameGenerator
+BeanNameGenerator <|-- AnnotationBeanNameGenerator
+
+interface ScopeMetadataResolver
+class AnnotationScopeMetadataResolver
+ScopeMetadataResolver <|-- AnnotationScopeMetadataResolver
+
+class ClassPathBeanDefinitionScanner{
+   BeanDefinitionRegistry registry
+   BeanDefinitionDefaults beanDefinitionDefaults
+   ScopeMetadataResolver scopeMetadataResolver
+}
+ClassPathScanningCandidateComponentProvider <|-- ClassPathBeanDefinitionScanner
+BeanDefinitionRegistry <-- ClassPathBeanDefinitionScanner
+BeanDefinitionDefaults <-- ClassPathBeanDefinitionScanner
+ScopeMetadataResolver <-- ClassPathBeanDefinitionScanner
+AnnotationScopeMetadataResolver <-- ClassPathBeanDefinitionScanner
+BeanNameGenerator <-- ClassPathBeanDefinitionScanner
+AnnotationBeanNameGenerator <-- ClassPathBeanDefinitionScanner
+
+class BeanDefinitionDefaults
+
+class ClassPathScanningCandidateComponentProvider{
+    Environment environment
+    ConditionEvaluator conditionEvaluator
+}
+ConditionEvaluator <.. ClassPathScanningCandidateComponentProvider
+StandardEnvironment <.. ClassPathScanningCandidateComponentProvider
+Environment <-- ClassPathScanningCandidateComponentProvider
+
+class StandardEnvironment
+AbstractEnvironment <|-- StandardEnvironment
+
+abstract AbstractEnvironment
+ConfigurableEnvironment <|-- AbstractEnvironment
+
+interface ConfigurableEnvironment
+Environment <|-- ConfigurableEnvironment
+ConfigurablePropertyResolver <|-- ConfigurableEnvironment
+
+interface Environment
+PropertyResolver <|-- Environment
+
+interface ConfigurablePropertyResolver
+PropertyResolver <|-- ConfigurablePropertyResolver
+
+interface PropertyResolver
+
+
+note left of AnnotationConfigApplicationContext
+独立的应用程序上下文，
+接收component classes作为输入-
+特别是@Configuration注解的类
+也可以使用普通的@Component注解
+类型以及使用javax.inject包下的，
+符合JSR-330规范的类。
+如果使用JSR-330规范的注解，
+需要引入javax.inject库。
+
+允许通过使用register(Class...)来注册
+每个类，也允许使用scan(String...)的方式
+来扫描类路径
+
+在有多个@Configuration注解类的情况下，
+最后一个类中定义的@Bean方法将会覆盖前面类
+中定义的方法。可以利用此属性，通过一个额外的
+@Configuration类来覆盖某些bean的定义。
+end note
+
+note left of AnnotatedBeanDefinitionReader
+使用该类，可以方便的通过编程方式来注册bean classes。
+它可以替代ClassPathBeanDefinitionScanner，使用
+相同的注解解析方式，但却只能指定注册的类。
+end note
+
+note left of BeanNameGenerator
+为bean definitions生成bean names的策略接口
+end note
+
+@enduml
