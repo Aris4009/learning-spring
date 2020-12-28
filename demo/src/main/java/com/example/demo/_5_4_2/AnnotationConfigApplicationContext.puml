@@ -148,8 +148,105 @@ abstract AbstractAutowireCapableBeanFactory
 AbstractBeanFactory <|-- AbstractAutowireCapableBeanFactory
 AutowireCapableBeanFactory <|-- AbstractAutowireCapableBeanFactory
 
-interface AutowireCapableBeanFactory
+interface AutowireCapableBeanFactory{
++int AUTOWIRE_NO = 0
++int AUTOWIRE_BY_NAME = 1
++int AUTOWIRE_BY_TYPE = 2
++int AUTOWIRE_CONSTRUCTOR = 3
++int AUTOWIRE_AUTODETECT = 4
++String ORIGINAL_INSTANCE_SUFFIX = ".ORIGINAL"
++<T> T createBean(Class<T> beanClass) throws BeansException
++void autowireBean(Object existingBean) throws BeansException
++Object configureBean(Object existingBean, String beanName) throws BeansException
++Object createBean(Class<?> beanClass, int autowireMode, boolean dependencyCheck) throws BeansException
++Object autowire(Class<?> beanClass, int autowireMode, boolean dependencyCheck) throws BeansException
++void autowireBeanProperties(Object existingBean, int autowireMode, boolean dependencyCheck) throws BeansException
++void applyBeanPropertyValues(Object existingBean, String beanName) throws BeansException
++Object initializeBean(Object existingBean, String beanName) throws BeansException
++Object applyBeanPostProcessorsBeforeInitialization(Object existingBean, String beanName) throws BeansException
++Object applyBeanPostProcessorsAfterInitialization(Object existingBean, String beanName) throws BeansException
++void destroyBean(Object existingBean)
++<T> NamedBeanHolder<T> resolveNamedBean(Class<T> requiredType) throws BeansException
++Object resolveBeanByName(String name, DependencyDescriptor descriptor) throws BeansException
++Object resolveDependency(DependencyDescriptor descriptor, @Nullable String requestingBeanName) throws BeansException
++Object resolveDependency(DependencyDescriptor descriptor, @Nullable String requestingBeanName,
+@Nullable Set<String> autowiredBeanNames, @Nullable TypeConverter typeConverter) throws BeansException
+}
 BeanFactory <|-- AutowireCapableBeanFactory
+note left of AutowireCapableBeanFactory
+BeanFactory接口的扩展将由能够自动装配的bean工厂实现，
+前提是它们希望为现有bean实例公开此功能。
+这个BeanFactory的子接口在常规应用
+程序代码中不应被使用：应直接使用BeanFactory或
+org.springframework.beans.Factory.ListableBeanFactory。
+其他框架的集成代码可以利用此接口来
+连接和填充Spring无法控制其声明周期的
+现有bean实例。这对WebWork Actions和
+Tapestry Page Object来说非常有用。
+
+注意，该接口不是由 org.springframework.context.ApplicationContext
+外观实现的，因为应用程序代码中几乎未使用
+该接口。也就是说，它可以从应用程序上下文中获得，可以通过
+ApplicationContext的org.springframework.context.ApplicationContext.getAutowireCapableBeanFactory
+方法获得。
+
+还可以实现org.springframework.beans.factory.BeanFactoryAware
+接口，该接口即使在ApplicationContext运行时，也能
+公开内部BeanFactory以访问AutowireCapableBeanFactory:
+只需将传入的BeanFactory强制转换为AutowireCapableBeanFactory。
+end note
+note right of AutowireCapableBeanFactory::AUTOWIRE_NO
+该常量用来表示没有外部定义的自动装配。
+end note
+note right of AutowireCapableBeanFactory::AUTOWIRE_BY_NAME
+该常量用来表示通过名称来自动装配bean
+属性（应用与所有bean属性的setters）
+end note
+note right of AutowireCapableBeanFactory::AUTOWIRE_BY_TYPE
+该常量用来表示通过类型来自动装配bean
+属性（应用与所有bean属性的setters）
+end note
+note right of AutowireCapableBeanFactory::AUTOWIRE_CONSTRUCTOR
+该常量用来表示通过构造器自动装配bean
+属性
+end note
+note right of AutowireCapableBeanFactory::AUTOWIRE_AUTODETECT
+该常量用来表示通过bean class内省，决定
+合适的自动装配策略。
+end note
+note right of AutowireCapableBeanFactory::ORIGINAL_INSTANCE_SUFFIX
+初始化现有bean实例时，原始实例约定的
+后缀：将附加到完全限定的bean类名中，例如：
+com.mypackage.MyClass.ORIGINAL，以
+强制执行要返回的指定实例，即没有代理等。
+end note
+note right of AutowireCapableBeanFactory::"createBean(Class<T> beanClass)"
+创建和填充bean实例的典型方法。
+指定class，创建一个新的bean实例。
+执行bean的完全初始化，包括所有相应的
+BeanPostProcessors。
+注意：这个方法倾向与创建一个新的实例，
+填充注解字段和方法也应用于所有标准
+bean的初始化回调。它不意味着通过
+by-name或by-type自动装配属性；
+使用createBean(Class,int,boolean)来达到
+上述目的。
+end note
+note right of AutowireCapableBeanFactory::"autowireBean(Object existingBean)"
+通过应用after-instantiation回调和bean属性post-processing来
+填充指定的bean实例。（例如基于注解驱动注入）。
+end note
+note right of AutowireCapableBeanFactory::configureBean
+配置指定原始bean：自动装配bean属性，应用bean属性值，
+应用工厂回调例如setBeanName和setBeanFactory，也应用于
+所有bean post processors(包括指定原始bean的包装)。
+这实际上是initializeBean提供的功能的超集，
+完全应用了相应bean definition所指的配置。注意：
+此方法需要指定bean definition的名称。
+end note
+note right of AutowireCapableBeanFactory::"createBean(Class<?> beanClass, int autowireMode, boolean dependencyCheck)"
+可以细粒度控制bean声明周期的专用方法
+end note
 
 abstract AbstractBeanFactory{
     BeanFactory parentBeanFactory
