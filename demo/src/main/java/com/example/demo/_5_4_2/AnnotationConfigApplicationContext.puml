@@ -60,8 +60,70 @@ ListableBeanFactory <|-- ConfigurableListableBeanFactory
 AutowireCapableBeanFactory <|-- ConfigurableListableBeanFactory
 ConfigurableBeanFactory <|-- ConfigurableListableBeanFactory
 
-interface ListableBeanFactory
+interface ListableBeanFactory{
++boolean containsBeanDefinition(String beanName)
++int getBeanDefinitionCount()
++String[] getBeanDefinitionNames()
++<T> ObjectProvider<T> getBeanProvider(Class<T> requiredType, boolean allowEagerInit)
++<T> ObjectProvider<T> getBeanProvider(ResolvableType requiredType, boolean allowEagerInit)
++String[] getBeanNamesForType(ResolvableType type)
+}
 BeanFactory <|-- ListableBeanFactory
+note left of ListableBeanFactory
+BeanFactory接口的扩展将由可以枚举其所有bean实例的bean工厂实现，而不是按客户的要求
+按名称一一尝试进行bean查找。预先加载了所有他们的bean definitions(
+例如基于XML的工厂)的BeanFactory的实现可能实这个接口。
+如果它是一个HierarchicalBeanFactory,则返不考虑任何BeanFactory层次结构，而
+仅与当前工厂中定义的bean有关。也可以使用BeanFactoryUtils帮助器类来考虑祖先工厂
+中的bean。
+在这个接口中的方法仅代表这个工厂中的bean definitions。他们将忽略通过其他方式（
+例如org.springframework.beans.factory.config.ConfigurableBeanFactory的
+registerSingleton方法）注册的任何单例bean，但getBeanNamesForType和getBeansOfType除外，
+他们也将检查此类手动注册的单例。当然，BeanFactory的getBean也允许透明地访问此类特殊的bean。
+但是，在典型情况下，无论如何，所有bean都将由外部bean definitions定，因此，大多数应用程序
+不需要担心这种区别。
+注意：除了除了getBeanDefinitionCount和containsBeanDefinition之外，此接口中的方法并非设计用于频繁调用。
+调用他的实现可能会很慢。
+end note
+note right of ListableBeanFactory::containsBeanDefinition
+检查这个工厂是否包含指定名称的bean definition。
+不考虑该工厂可能参与的任何层次结构，并且将忽略通过bean definitions以外的其他方式注册的任何
+单例bean。
+end note
+note right of ListableBeanFactory::getBeanDefinitionCount
+返回工中bean定义的数量。
+不考虑该工厂可能参与的任何层次结构，并且将忽略通过bean definitions以外的其他方式注册的任何
+单例bean。
+end note
+note right of ListableBeanFactory::getBeanDefinitionNames
+返回该工厂中定义的所有bean的名字。
+不考虑该工厂可能参与的任何层次结构，并且将忽略通过bean definitions以外的其他方式注册的任何
+单例bean。
+end note
+note right of ListableBeanFactory::"getBeanProvider(Class<T> requiredType, boolean allowEagerInit)"
+返回指定bean的provider，以允许按需延迟检索实例，包括可用性和唯一性选项
+end note
+note right of ListableBeanFactory::"getBeanProvider(ResolvableType requiredType, boolean allowEagerInit)"
+返回指定bean的provider，以允许按需延迟检索实例，包括可用性和唯一性选项
+end note
+note right of ListableBeanFactory::"getBeanNamesForType"
+169 / 5000
+翻译结果
+根据Factory Beans的bean定义或getObjectType的值判断，
+返回与给定类型（包括子类）匹配的bean的名称。
+注意：这个方法仅自省顶级bean。它不检查可能也与指定类型匹配的嵌套bean。
+是否考虑由FactoryBeans创建的对象，这意味着将初始化FactoryBeans。
+如果由FactoryBean创建的对象不匹配，则原始FactoryBean本身将与该类型匹配。
+不考虑该工厂可能参与的任何层次结构。
+也可以使用BeanFactoryUtils的beanNamesForTypeIncludedAncestors
+在祖先工厂中包括bean。
+注意：不要忽略通过bean定义以外的其他方式注册的单例bean。
+此版本的getBeanNamesForType匹配所有类型的bean，无论是单例，
+原型还是FactoryBeans。 在大多数实现中，结果将与
+getBeanNamesForType（type，true，true）相同。
+此方法返回的Bean名称应始终尽可能按后端配置中定义的顺序返回Bean名称。
+end note
+
 
 abstract AbstractAutowireCapableBeanFactory
 AbstractBeanFactory <|-- AbstractAutowireCapableBeanFactory
