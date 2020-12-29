@@ -59,6 +59,7 @@ public class AppConfig {
 			return context;
 		} else if (code == 2) {
 			// 这种方式不生效？不知为何？
+			// 原因为没有加载AppConfig.class类
 			// 通过打印beanDefinitionNames，没有将appConfig注册到beanDefinition。因为没有加@Component
 			AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext(
 					"com/example/demo/_5_4_2");
