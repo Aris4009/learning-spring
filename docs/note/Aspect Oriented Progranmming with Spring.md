@@ -851,4 +851,69 @@ public Object preProcessQueryPattern(ProceedingJoinPoint pjp,
 | 从概念上讲，特定切面的每种不同类型的通知可直接应用于连接点。作为结果，`@AfterThrowing`通知不支持从伴随的`@After`/`@AfterReturning`方法中接收异常。<br/>5.2.7以后的Spring框架，在相同的`@Aspect`类中定义的需要在统一连接点上运行的通知方法，将根据通知类型从高到底的优先级进行分配：`@Around`，`@Before`，`@After`，`@AfterReturning`，`@AfterThrowing`。注意，在相同切面的任何`@AfterReturning`或`@AfterThrowing`通知方法之后，都会有效地调用`@After`通知方法，对于`@After`来说，它遵循了AspectJ的"after finally advice"语义。<br/><br/>当在相同的`@Aspect`类中定义的两个相同类型的通知（例如，两个`@After`通知方法）都需要在相同的切点上运行时，排序是未定义的（因为没有办法通过反射对编译好的类获取源代码声明的顺序）。考虑将此类通知方法分解为每个@Aspect类中的每个连接点的一个通知方法，或者将通知碎片重构为单独的@Aspect类，您可以在切面级别通过Ordered或@Order排序这些类。 |
 | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 
+### 5.4.5. Introductions（引入）
+
+引入（在AspectJ中被声明为inner-type）使切面可以声明被通知对象实现指定接口，并且代表这些对象提供该接口的实现。
+
+
+
+通过使用`@DeclareParents`注解来创建一个introduction。这个注解用来声明匹配那些具有新的父类型。例如，指定一个名为`UsageTracked`接口，并且该接口的实现命名为`DefaultUsageTracked`，下面的切面声明了服务接口的所有实现者也实现了`UsageTracked`接口（例如，通过JMX进行统计）：
+
+```java
+@Aspect
+public class UsageTracking {
+
+    @DeclareParents(value="com.xzy.myapp.service.*+", defaultImpl=DefaultUsageTracked.class)
+    public static UsageTracked mixin;
+
+    @Before("com.xyz.myapp.CommonPointcuts.businessService() && this(usageTracked)")
+    public void recordUsage(UsageTracked usageTracked) {
+        usageTracked.incrementUseCount();
+    }
+
+}
+```
+
+通过带注解的字段类型来决定接口的实现。`@DeclareParents`注解中的属性`value`是一个AspectJ类型模式。任何匹配类型的bean都实现`UsageTracked`接口。注意，在前面的before advice例子中，service beans可以直接用作`UsageTracked`接口的实现。如果通过编程来访问一个bean，则应该编写一下内容：
+
+```java
+UsageTracked usageTracked = (UsageTracked) context.getBean("myService");
+```
+
+
+
+### 5.4.5. 切面实例化模型
+
+| 这是一个高级主题。如果刚刚开始使用AOP，可以跳过这部分。 |
+| ----------------------------- |
+
+默认情况下，应用程序上下文中每个切面只有一个实例。AspectJ调用这个单例实例化的模型。可以用不同的生命周期来定义切面。Spring支持切面的`perthis`和`pertarget`实例化模型；`percflow`，`percflowbelow`和`pertypedwithin`目前不支持。
+
+
+
+通过在`@Aspect`注解上定义`perthis`语句声明一个`perthis`切面。思考下面的例子：
+
+```java
+@Aspect("perthis(com.xyz.myapp.CommonPointcuts.businessService())")
+public class MyAspect {
+
+    private int someState;
+
+    @Before("com.xyz.myapp.CommonPointcuts.businessService()")
+    public void recordServiceUsage() {
+        // ...
+    }
+}
+```
+
+在上面的例子中，`perthis`语句的作用是对于每个唯一的servie对象，会创建一个切面实例，用来执行业务服务（每个唯一的对象在切点表达式匹配的连接点上绑定到`this`）。切面实例是在服务对象上的方法首次调用时被创建。当服务对象超出范围时，切面也超出了范围。在切面实例被创建之前，任何通知都不会运行。一旦创建了切面实例，其中声明的通知就会在匹配的连接点上运行，但是仅当服务对象是与此切面相关联的对象。参考AspectJ编程指南来获取`per`语句的更多信息。
+
+
+
+`pertarget`实例模型的工作与`perthis`相似，但是它在匹配的连接点上为每个唯一的目标对象创建一个切面实例。
+
+
+
+
+
 
