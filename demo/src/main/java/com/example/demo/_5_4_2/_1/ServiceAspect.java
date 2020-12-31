@@ -1,6 +1,11 @@
 package com.example.demo._5_4_2._1;
 
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
+
 import org.aspectj.lang.ProceedingJoinPoint;
+import org.aspectj.lang.Signature;
 import org.aspectj.lang.annotation.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,7 +37,7 @@ public class ServiceAspect {
 	public void around() {
 	}
 
-	@Pointcut("execution(public java.lang.String com.example.demo._5_4_2._1..*.hello())")
+	@Pointcut("execution(public java.lang.String com.example.demo._5_4_2._1..*.hello()) && within(com.example.demo._5_4_2._1.*)")
 	public void dynamicAround() {
 
 	}
@@ -64,7 +69,20 @@ public class ServiceAspect {
 		log.info("before");
 		Object retVal = pjp.proceed(new Object[] { "王五", -100 });
 		log.info("after");
-		return retVal;
+		Map<String, Integer> map = new HashMap<>();
+		map.put("新的值", -999);
+
+		Object _this = pjp.getThis();
+		log.info("this.class:{},this:{}", _this.getClass(), _this);
+		Object target = pjp.getTarget();
+		log.info("target.class:[],target:{}", target.getClass(), target);
+		Object[] obj = pjp.getArgs();
+		log.info("args:{}", Arrays.toString(obj));
+		Signature signature = pjp.getSignature();
+		log.info("signature:{}", signature);
+
+		log.info(pjp.toString());
+		return map;
 	}
 
 }

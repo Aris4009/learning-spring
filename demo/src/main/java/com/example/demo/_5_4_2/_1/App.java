@@ -21,7 +21,10 @@ public class App {
 		Service service = context.getBean(Service.class);
 		log.info("{}", service.getClass());
 		log.info(service.toString());
+		long start = System.nanoTime();
 		process(service, 5);
+		long end = System.nanoTime();
+		log.info("{}", end - start);
 	}
 
 	private static void process(Service service, int arg) throws Exception {

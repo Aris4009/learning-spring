@@ -163,8 +163,6 @@ private void anyOldTransfer() {} // the pointcut signature
 
 切点表达式形成的值`@Pointcut`是一个常规AspectJ 5的切点表达式。对于Aspect的切点语言，请参考`AspectJ Programming Guide`或一本关于AspectJ的书籍。
 
-
-
 **支持的切点指示符**
 
 Spring AOP支持如下切点指示符：
@@ -186,6 +184,7 @@ Spring AOP支持如下切点指示符：
 * `@annotation`：将匹配限制为连接点的主题（在Spring AOP中运行的方法）具有指定注解的连接点。
 
 <div">
+
 <center>其他切点类型</center>
 </div>
 
@@ -193,23 +192,13 @@ Spring AOP支持如下切点指示符：
 
 *这些标识符在将来的版本可能会扩展至Spring AOP中以便支持更多的AspectJ切点标识符。*
 
-
-
 因为Spring AOP限制匹配只能在方法执行的连接点，因此，前面对切点指示符的讨论所给出的定义比在AspectJ编程指南中所能找到的要窄。此外，AspectJ本身具有基于类型的语义，并且在执行连接点处，`this`和`target`都引用同一个对象：执行该方法的对象。Spring AOP是基于代理的系统，区分代理对象本身（绑定到此对象）和代理后面的目标对象（绑定到目标）。
-
-
 
 *由于Spring AOP框架基于代理的特性，因此根据定义，不会拦截目标对象内的调用。对于JDK代理，仅拦截代理上的公共接口方法调用。使用CGLIB，将拦截代理上的public和protected方法调用（必要时甚至包括程序包可见的方法）。但是通过代理进行的常见交互应始终通过公开签名进行设计。*
 
-
-
 *注意，切点定义通常与任何拦截方法匹配。如果一个切点严格意义上仅是公开的，即使在CGLIB代理方案中可能存在通过代理进行非公开的交互，也需要相应的定义切点。*
 
-
-
 *如果需要拦截在目标类中包括方法调用甚至构造函数，请考虑使用Spring-driven的本地AspectJ织入，而不是基于代理的AOP框架。这构成了具有不同特性的AOP使用模式，因此，确保在做出决定之前先熟悉织入。*
-
-
 
 Spring AOP还支持其他名为`bean`的PCD。使用PCD，可以将连接点的匹配限制为特定的命名Spring Bean或一组命名Spring Bean（使用通配符时）。bean PCD具有以下形式：
 
@@ -219,15 +208,9 @@ bean(idOrNameOfBean)
 
 `idOrNameOfBean`可以是任意Spring bean的名称。限制通配符支持使用`*`，因此，如果为Spring bean建立了一些命名约定，则可以编写一个bean PCD表达式来选择他们。与其他切入点指示符一样，bean PCD可以与`&&`、`||`、`!`一起使用。
 
-
-
 *`bean`PCD仅在Spring AOP中支持，本地AspectJ织入不支持它。他是AspectJ定义的标准PCDS的扩展，因此，对于在@Aspect模型中声明的切面不适用。*
 
-
-
 *`bean`PCD在实例级别（基于Spring bean名称概念）上运行，而不是仅在类级别（基于织入AOP限制）上运行。基于实例的切点指示符是基于代理的Spring AOP框架的特殊功能，并且与Spring bean工厂紧密集成，因此可以自然而直接地通过名称识别特定bean。*
-
-
 
 **链接切点表达式**
 
@@ -250,10 +233,622 @@ private void tradingOperation() {}
 
 <mark>3</mark>`tradingOperation`将匹配在trading模块中的任何代表方法执行的公共方法。
 
-
-
 最佳实践是从较小的命名组件中构建更复杂的切入点表达式，如先前所示。当按名称引用切入点时，将应用常规的Java可见性规则（您可以看到相同类型的私有切入点，层次结构中受保护的切入点，任何位置的公共切入点，等等）。可见性不影响切入点匹配。
 
+**共享通用切点定义**
 
+在使用企业应用程序时，开发人员通常希望从多个方面引用应用程序的模块和特定的操作集。建议为此定义一个`CommonPointcuts`切面来捕获公共切点表达式。
+
+```java
+package com.xyz.myapp;
+
+import org.aspectj.lang.annotation.Aspect;
+import org.aspectj.lang.annotation.Pointcut;
+
+@Aspect
+public class CommonPointcuts {
+
+    /**
+     * A join point is in the web layer if the method is defined
+     * in a type in the com.xyz.myapp.web package or any sub-package
+     * under that.
+     */
+    @Pointcut("within(com.xyz.myapp.web..*)")
+    public void inWebLayer() {}
+
+    /**
+     * A join point is in the service layer if the method is defined
+     * in a type in the com.xyz.myapp.service package or any sub-package
+     * under that.
+     */
+    @Pointcut("within(com.xyz.myapp.service..*)")
+    public void inServiceLayer() {}
+
+    /**
+     * A join point is in the data access layer if the method is defined
+     * in a type in the com.xyz.myapp.dao package or any sub-package
+     * under that.
+     */
+    @Pointcut("within(com.xyz.myapp.dao..*)")
+    public void inDataAccessLayer() {}
+
+    /**
+     * A business service is the execution of any method defined on a service
+     * interface. This definition assumes that interfaces are placed in the
+     * "service" package, and that implementation types are in sub-packages.
+     *
+     * If you group service interfaces by functional area (for example,
+     * in packages com.xyz.myapp.abc.service and com.xyz.myapp.def.service) then
+     * the pointcut expression "execution(* com.xyz.myapp..service.*.*(..))"
+     * could be used instead.
+     *
+     * Alternatively, you can write the expression using the 'bean'
+     * PCD, like so "bean(*Service)". (This assumes that you have
+     * named your Spring service beans in a consistent fashion.)
+     */
+    @Pointcut("execution(* com.xyz.myapp..service.*.*(..))")
+    public void businessService() {}
+
+    /**
+     * A data access operation is the execution of any method defined on a
+     * dao interface. This definition assumes that interfaces are placed in the
+     * "dao" package, and that implementation types are in sub-packages.
+     */
+    @Pointcut("execution(* com.xyz.myapp.dao.*.*(..))")
+    public void dataAccessOperation() {}
+
+}
+```
+
+可以在需要切点表达式的任何地方引用这样的切面定义的切点。例如，要是service层具有事务功能，可以这样写：
+
+```xml
+<aop:config>
+    <aop:advisor
+        pointcut="com.xyz.myapp.CommonPointcuts.businessService()"
+        advice-ref="tx-advice"/>
+</aop:config>
+
+<tx:advice id="tx-advice">
+    <tx:attributes>
+        <tx:method name="*" propagation="REQUIRED"/>
+    </tx:attributes>
+</tx:advice>
+```
+
+`<aop:config>`和`<aop:advisor>`元素`Schema-based AOP Support`中讨论。事务元素在事务管理章节中讨论。
+
+**例子**
+
+Spring AOP用户常常喜欢使用`execution`切点指示器。下面是execution表达式的格式：
+
+```
+execution(modifiers-pattern? ret-type-pattern declaring-type-pattern?name-pattern(param-pattern)?throws-pattern?)
+```
+
+除了returning type pattern外的所有部分（在前面片段中的`ret-type-pattern`），name pattern和parameters pattern是可选的。Returning type pattern决定了该方法的返回类型必须是为了使连接点匹配。`*`是最常用作returning type pattern的。它匹配了任意返回类型。一个全限定类型名称仅当方法返回指定类型时才匹配。Name parttenr皮；诶方法名。可以使用`*`通配符作为name pattern的一部分。如果特别声明了一个type parttern，在末尾添加`.`以将其连接到name pattern组件。Parameters pattern参数模式稍微复杂一些：`()`匹配一个无参的方法，`(..)`匹配任意数量的参数（0个或多个）。`(*)`pattern 匹配具有任何一个参数的方法。`(*,String)`匹配具有两个参数的方法。第一个是可以是任意类型，但是第二个参数必须是`String`。参考AspectJ编程指南中的`Language Semantics`以便获取更多信息。
+
+下面的例子展示了一些通用切点表达式：
+
+* 任何公共方法的执行：
+
+```
+execution(public * *(..))
+```
+
+* 任意以`set`为前缀的方法的执行
+
+```
+execution(* set*(..))
+```
+
+* `AccountService`接口中定义的任意方法的执行
+
+```
+execution(* com.xyz.service.AccountService.*(..))
+```
+
+* 任意`service`包中定义的方法的执行
+
+```
+execution(* com.xyz.service.*.*(..))
+```
+
+* 任意`service`包或子包中定义的方法
+
+```
+execution(* com.xyz.service..*.*(..))
+```
+
+* service包中的任意连接点(仅在Spring AOP中的方法执行)
+
+```
+within(com.xyz.service.*)
+```
+
+* service包或它的子包中的任意连接点（仅在Spring AOP中的方法执行）
+
+```
+within(com.xyz.service..*)
+```
+
+* 实现了`AccountService`接口的代理的任意连接点（仅在Spring AOP中的方法执行）
+
+```
+this(com.xyz.service.AccountService)
+```
+
+| 'this'通常以绑定形式使用。参考Declaring Advice，如何使在通知体中的代理对象可用。 |
+| --------------------------------------------------- |
+
+* 实现了`AccountService`接口的目标对象的任意连接点（仅在Spring AOP中的方法执行）
+
+```
+target(com.xyz.service.AccountService)
+```
+
+| 'target'通常以绑定形式使用。参考Declaring Advice，如何让在通知体中的目标对象可用。 |
+| ----------------------------------------------------- |
+
+* 任意采用单个参数并且在运行时传递的参数是可序列化的连接点（仅在Spring AOP中的方法执行）
+
+```
+args(java.io.Serializable)
+```
+
+| 'args'通常以绑定形式使用。参考Declaring Advice，如何在通知体中让方法参数可用。 |
+| -------------------------------------------------- |
+
+注意，这个例子中指定的切点不同于`execution(* *(java.io.Serializabale))`。args版本匹配的是在运行时传递的参数是可序列化的，execution版本匹配的是声明了一个`Serializable`类型参数的方法签名。
+
+* 目标对象具有`@Transactional`注解的任意切点（仅在Spring AOP中的方法执行）
+
+```
+@target(org.springframework.transaction.annotation.Transactional)
+```
+
+| 通常以数据绑定形式使用'@target'。参考Declaring Advice，如何在通知体中让注解对象可用。 |
+| ------------------------------------------------------- |
+
+* 目标对象声明的类型具有`@Transactional`注解的任意连接点
+
+```
+@within(org.springframework.transaction.annotation.Transactional)
+```
+
+| '@within'通常是以绑定形式使用。参考Declaring Advice，如何在通知体中让注解对象可用。 |
+| ------------------------------------------------------ |
+
+* 执行的方法具有`@Transactional`注解的任意连接点
+
+```
+@annotation(org.springframework.transaction.annotation.Transactional)
+```
+
+| '@annotation'通常以绑定的形式使用。参考Declaring Advice，如何在通知体中让注解对象可用。 |
+| ---------------------------------------------------------- |
+
+* 有一个参数，并且传递的参数的运行时类型具有`@Classified`注解的任意连接点
+
+```
+@args(com.xyz.security.Classified)
+```
+
+
+
+| '@args'通常以绑定的形式使用。参考Declaring Advice，如何在通知体中让注解对象可用。 |
+| ---------------------------------------------------- |
+
+* Spring bean名称包含匹配通配符表达式`*Service`的任意切点。
+
+```
+bean(*Service)
+```
+
+**写出好的切点**
+
+在编译期间，AspectJ处理切点以优化匹配性能。检查代码并且确定每个连接点是否匹配（静态或动态）指定的切点是一个昂贵的过程。（动态匹配意味着不能从静态分析中完全确定匹配，并且在代码中需要测试来决定在代码运行时的实际匹配）。首次遇到切点声明时，AspectJ将其重写为匹配过程的最佳形式。这意味着什么？基本上，切点以DNF（析取范式）重写，并且对切点的组件进行排序，以便首先检查那些比较廉价的组件。这意味着不需要担心了解各种切点指示器的性能并且可以在切点声明中以任何顺序提供他们。
+
+
+
+但是，AspectJ只能使用所告诉的内容。为了获得作家的匹配性能，应该考虑他们视图达到的目标，并在定义中尽可能缩小匹配的搜索空间。现有的指示符属于一下三类之一：类别，作用域和上下文：
+
+* 类别的指示符算则一个特殊类别的连接点：`execution`，`get`，`set`，`call`，`handler`。
+
+* 作用域范围指示符选择一组感兴趣的（可能是多种类型）的连接点：`within`，`withincode`。
+
+* 上下文指示符根据上下文（并可选的绑定）匹配：`this`，`target`，`annotation`。
+
+好的切点应该首先包含至少两类（类别和作用域）。可以包含上下文指示器来匹配基于连接点上下文或绑定为了在通知中使用上下文。由于额外的处理和分析，只提供一种指示器或只有一种上下文指示器工作可能会影响织入性能（时间和内存的使用）。作用域指示器匹配非常快，并且使用他们的用法意味着AspectJ可以非常迅速地消除不需要进一步处理一组连接点。一个好的切点如果在可能的情况下应该总是包含一个。
+
+
+
+### 5.4.4. 声明通知
+
+通知与切点表达式关联，并且在切点匹配的方法之前、之后或周围运行。切点表达式可以是对命名切点的简单引用，也可以是直接声明的切点表达式。
+
+
+
+**Before Advice**
+
+通过使用`@Before`注解，在切面中声明一个前置通知：
+
+```java
+import org.aspectj.lang.annotation.Aspect;
+import org.aspectj.lang.annotation.Before;
+
+@Aspect
+public class BeforeExample {
+
+    @Before("com.xyz.myapp.CommonPointcuts.dataAccessOperation()")
+    public void doAccessCheck() {
+        // ...
+    }
+}
+```
+
+如果直接使用切点表达式，可以将上面的例子重写为如下形式：
+
+```java
+import org.aspectj.lang.annotation.Aspect;
+import org.aspectj.lang.annotation.Before;
+
+@Aspect
+public class BeforeExample {
+
+    @Before("execution(* com.xyz.myapp.dao.*.*(..))")
+    public void doAccessCheck() {
+        // ...
+    }
+}
+```
+
+**After Returning Advice**
+
+当匹配的方法执行正常返回时，执行后置返回通知。可以使用`@AfterReturning`注解来声明：
+
+```java
+import org.aspectj.lang.annotation.Aspect;
+import org.aspectj.lang.annotation.AfterReturning;
+
+@Aspect
+public class AfterReturningExample {
+
+    @AfterReturning("com.xyz.myapp.CommonPointcuts.dataAccessOperation()")
+    public void doAccessCheck() {
+        // ...
+    }
+}
+```
+
+
+
+| 可以在同一个切面中拥有多个通知声明（以及其他成员）。在这些示例中，仅显示单个建议声明，以集中每个建议的效果。 |
+| ------------------------------------------------------ |
+
+有时，需要在通知体中访问实际返回值。可以使用`@AfterReturning`的形式绑定绑定返回值来访问：
+
+```java
+import org.aspectj.lang.annotation.Aspect;
+import org.aspectj.lang.annotation.AfterReturning;
+
+@Aspect
+public class AfterReturningExample {
+
+    @AfterReturning(
+        pointcut="com.xyz.myapp.CommonPointcuts.dataAccessOperation()",
+        returning="retVal")
+    public void doAccessCheck(Object retVal) {
+        // ...
+    }
+}
+```
+
+在`returning`属性中使用的名称必须对应通知方法中的参数。当方法执行返回时，返回值作为相应参数值传入通知方法。一个`returning`语句也限制匹配那些返回值为指定类型的方法执行（在这个例子中，`Object`匹配任何返回类型）。
+
+
+
+注意，after returning advice使用时，不可能返回完全不同的引用。
+
+
+
+**After Throwing Advice**
+
+当匹配方法执行抛出异常时，抛出异常后通知会运行。可以通过使用`@AfterThrowing`注解来声明：
+
+```java
+import org.aspectj.lang.annotation.Aspect;
+import org.aspectj.lang.annotation.AfterThrowing;
+
+@Aspect
+public class AfterThrowingExample {
+
+    @AfterThrowing("com.xyz.myapp.CommonPointcuts.dataAccessOperation()")
+    public void doRecoveryActions() {
+        // ...
+    }
+}
+```
+
+通常，仅当抛出指定异常时，通知才回运行并且在通知体中需要访问抛出的异常。可以使用`throwing`属性来限制匹配（使用`Throwable`作为异常类型）并且将抛出异常绑定到通知参数中：
+
+```java
+import org.aspectj.lang.annotation.Aspect;
+import org.aspectj.lang.annotation.AfterThrowing;
+
+@Aspect
+public class AfterThrowingExample {
+
+    @AfterThrowing(
+        pointcut="com.xyz.myapp.CommonPointcuts.dataAccessOperation()",
+        throwing="ex")
+    public void doRecoveryActions(DataAccessException ex) {
+        // ...
+    }
+}
+```
+
+在`throwing`属性中使用的名称必须和通知方法中的参数对应。当方法执行存在抛出异常时，异常作为相应的参数值传递到通知方法中。一个`throwing`语句也限制了仅匹配那些抛出指定异常的方法执行（`DataAccessException`）。
+
+
+
+| 注意，`AfterThrowing`不能标识一个通用异常处理的回调。特别是，`AfterThrowing`通知方法仅支持从连接点中获取异常（用户声明的目标方法），不能从伴随的`@After/@AfterReturning`方法中获取。 |
+| --------------------------------------------------------------------------------------------------------------------- |
+
+**After (Finally) Advice**
+
+当匹配方法执行时，后置（最终）通知运行。通过使用`@After`注解来声明。后置通知必须准备处理正常和异常返回条件。通常用来释放资源和类似的目的：
+
+```java
+import org.aspectj.lang.annotation.Aspect;
+import org.aspectj.lang.annotation.After;
+
+@Aspect
+public class AfterFinallyExample {
+
+    @After("com.xyz.myapp.CommonPointcuts.dataAccessOperation()")
+    public void doReleaseLock() {
+        // ...
+    }
+}
+```
+
+
+
+| 注意，AspectJ中的`@After`注解定义为`after finally advice`，与在try-catch语句中的finally块相似。对于任何结果，正常返回或连接点抛出的异常（用户声明的目标方法），它会被调用，与`@AfterReturning`相比，只能应用于成功的正常返回。 |
+| -------------------------------------------------------------------------------------------------------------------------------------------------- |
+
+**Around Advice**
+
+最后一类通知是环绕通知。环绕通知”环绕“一个匹配的方法执行。它能同事在方法运行的前后执行，并且可以确定何时，如何以及是否真正运行该方法。环绕通知常用来以线程安全的方式（例如，启动和停止计时器），需要在方法执行的前后共享状态。要使用最小符合要求的通知类型，也就是说，如果before advice能满足需求，就不要使用around advice。
+
+
+
+环绕通知通过使用`@Around`注解来声明。通知方法的第一个参数必须是`ProceedingJoinPoint`类型。使用通知体，调用`ProceedingJoinPoint`上的`proceed()`会使底层方法运行。这个`proceed`方法也可以传递一个`Object[]`。当方法继续执行时，数组中的值用来当做方法执行的参数。
+
+
+
+| 当使用`Object[]`调用时，`proceed`的行为与通过AspectJ编译器编译后的环绕通知的`proceed`行为有些不同。对于使用传统AspectJ语言编写的环绕通知，给`proceed`传递的参数数量必须与传递给环绕通知的参数数量相匹配（不是底层连接点接收的参数数量），并且，在指定参数位置中传递给proceed的值会取代在连接点的原始值（如果现在做没有意义，也不用担心）。Spring采取的方法更简单，并且更适合其基于代理的仅执行的语义。如果编译为Spring编写的@AspectJ切面，并在AspectJ边奇艺和weaver中使用参数进行处理，则只需要意识到这种差异即可。这里有一种可以写出100%同时匹配Spring AOP和AspectJ的方法，在`following section on advice parameters`章节中。 |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+
+
+
+下面的例子展示了如何使用环绕通知：
+
+```java
+import org.aspectj.lang.annotation.Aspect;
+import org.aspectj.lang.annotation.Around;
+import org.aspectj.lang.ProceedingJoinPoint;
+
+@Aspect
+public class AroundExample {
+
+    @Around("com.xyz.myapp.CommonPointcuts.businessService()")
+    public Object doBasicProfiling(ProceedingJoinPoint pjp) throws Throwable {
+        // start stopwatch
+        Object retVal = pjp.proceed();
+        // stop stopwatch
+        return retVal;
+    }
+}
+```
+
+通过环绕通知返回的值，是方法的调用者看到的返回值，例如，一个简单的缓存切面可以从缓存中返回值，如果没有，则调用`proceed()`。注意，`proceed`可能被调用一次、多次或完全不被调用。这些都是合法的。
+
+
+
+**通知参数**
+
+Spring提供了完整类型的通知，这意味着可以在通知签名中（前面我看看到的returning和throwing例子）需要的地方声明参数，而不是一直使用`Object[]`。将在本节的后面部分介绍如对于通知体，何使用参数和其他上下文值。先来看一下如何编写通用通知，以了解当前通知中的通知方法。
+
+
+
+**访问当前`JoinPoint`切点**
+
+任何声明的通知方法，`org.aspectj.lang.JoinPoint`类型的参数总是它的第一个参数（注意，环绕通知要求声明的第一个参数类型是`ProceedingJoinPoint`，它是`JoinPoint`的子类。`JoinPoint`接口提供了大量有用的方法）：
+
+* `getArgs()`：返回方法参数。
+
+* `getThis()`：返回代理对象。
+
+* `getTarget()`：返回目标对象。
+
+* `getSignature()`：返回被通知方法的描述。
+
+* `toString()`：打印有用的被通知方法的描述。
+
+
+
+**给通知传递参数**
+
+已经准备好如何绑定返回值或异常值（使用after returning和after throwing advice）。为了让通知体中的参数值可用，可以使用`args`的绑定形式。在参数表达式中，如果使用参数名代替类型名称，那么当通知被调用时，相应的参数值会作为参数进行传递。一个例子应该让这更清楚。假设希望使用`Account`对象作为第一个参数通知DAO操作执行，需要在通知体中访问这个account：
+
+```java
+@Before("com.xyz.myapp.CommonPointcuts.dataAccessOperation() && args(account,..)")
+public void validateAccount(Account account) {
+    // ...
+}
+```
+
+这个表达式中的`arg(account,...)`部分有两个目的。首先，它限制了仅匹配那些至少有一个参数的方法执行并且传递的参数是`Account`实例。第二，通过`account`参数，让实际`Account`对象可用于通知中。
+
+
+
+另一种编写这种声明切点的方法是，当匹配一个连接点时，提供一个`Account`对象值，然后从通知中引用命名的切点：
+
+```java
+@Pointcut("com.xyz.myapp.CommonPointcuts.dataAccessOperation() && args(account,..)")
+private void accountDataAccessOperation(Account account) {}
+
+@Before("accountDataAccessOperation(account)")
+public void validateAccount(Account account) {
+    // ...
+}
+```
+
+更多细节可参考AspectJ编程指南。
+
+
+
+代理对象`(this)`，目标对象`(target)`和注解`(@within,@target,@annotation,@args)`可以以相似形式进行绑定。下面两个例子展示了如何使用一个`@Auditable`注解来匹配方法注解的执行，并且提取审核代码：
+
+
+
+第一个例子定义了`@Auditable`注解：
+
+```java
+@Retention(RetentionPolicy.RUNTIME)
+@Target(ElementType.METHOD)
+public @interface Auditable {
+    AuditCode value();
+}
+```
+
+第二个例子展示了匹配`@Auditable`方法执行的通知：
+
+```java
+@Before("com.xyz.lib.Pointcuts.anyPublicMethod() && @annotation(auditable)")
+public void audit(Auditable auditable) {
+    AuditCode code = auditable.value();
+    // ...
+}
+```
+
+
+
+**通知参数和泛型**
+
+Spring AOP可以处理在类种声明的泛型和方法中的泛型参数。假设有一个泛型类如下所示：
+
+```java
+public interface Sample<T> {
+    void sampleGenericMethod(T param);
+    void sampleGenericCollectionMethod(Collection<T> param);
+}
+```
+
+可以通过在要拦截方法的参数类型中键入通知参数，将方法类型限制为某些参数类型：
+
+```java
+@Before("execution(* ..Sample+.sampleGenericMethod(*)) && args(param)")
+public void beforeSampleMethod(MyType param) {
+    // Advice implementation
+}
+```
+
+<mark>这种方法杜宇泛型集合来说是无效的，所以不能向下面的例子一样定义一个切点：</mark>
+
+```java
+@Before("execution(* ..Sample+.sampleGenericCollectionMethod(*)) && args(param)")
+public void beforeSampleMethod(Collection<MyType> param) {
+    // Advice implementation
+}
+```
+
+为了让它有效，不得不检查集合中的每个元素，这是不合理的，因为无法决定如何处理`null`值。为了达到相似的目的，必须将参数键入`Collection<?>`作为参数，并手动检查参数类型。
+
+
+
+**确定参数名字**
+
+绑定在通知调用中的参数依靠切点表达式中的使用的名称与切点方法签名中声明的参数进行匹配。通过Java反射策略无法获得参数名称，因此Spring AOP使用以下策略来确定参数名称：
+
+* 如果用户明确指定了参数名称，那就使用这个指定的参数名称。通知和切点注解都有一个可选择的`argNames`属性，可以用来指定注解方法的参数名称。这些参数名称在运行时可用，下面的例子展示了如何使用`argNames`属性：
+
+```java
+@Before(value="com.xyz.lib.Pointcuts.anyPublicMethod() && target(bean) && @annotation(auditable)",
+        argNames="bean,auditable")
+public void audit(Object bean, Auditable auditable) {
+    AuditCode code = auditable.value();
+    // ... use code and bean
+}
+```
+
+如果第一个参数是`JoinPoint`，`ProceedingJoinPoint`，或`JoinPoint.StaticPart`其中的一种，可以从`argNames`属性的值中忽略参数的名称。例如，如果修改之前的通知来获取连接点对象，`argNames`属性不需要包含它：
+
+```java
+@Before(value="com.xyz.lib.Pointcuts.anyPublicMethod() && target(bean) && @annotation(auditable)",
+        argNames="bean,auditable")
+public void audit(JoinPoint jp, Object bean, Auditable auditable) {
+    AuditCode code = auditable.value();
+    // ... use code, bean, and jp
+}
+```
+
+对于`JoinPoint`，`PorceedingJoinPoint`和`JoinPoint.StaticPart`类型的第一个参数给与的特殊处理对于不手机任何其他连接点上下文的通知实例特别方便。在这些情况下，可以省略`argNames`属性。例如，下面的例子不需要声明`argNames`属性：
+
+```java
+@Before("com.xyz.lib.Pointcuts.anyPublicMethod()")
+public void audit(JoinPoint jp) {
+    // ... use jp
+}
+```
+
+
+
+* 使用`argNames`属性有一点笨拙，所以，如果`argNames`属性没有被指定，Spring AOP查看该类的调试信息并且尝试从本地变量表中决定参数名。只要已使用调试信息（至少是'-g:vars'）编译了类，这个信息就会存在。使用此标志进行编译的后果是：(1)代码更容易理解（反向工程师），(2)类文件的大小略大（通常无关紧要），(3)编译器未应用删除未使用的局部变量的优化。换句话说，通过启用此标志，应该不会遇到任何困难。
+
+
+
+| 如果通过AspectJ编译器（ajc）编译`@AspectJ`，甚至不需要调试信息，不需要增加`argNames`属性，因为编译器保留了所需的信息。 |
+| -------------------------------------------------------------------------- |
+
+* 如果编译的代码没有所需的调试信息，Spring AOP尝试推断绑定变量与参数的配对（例如，如果仅有一个变量绑定到切点表达式，并且通知方法仅接收一个参数，则配对很明显）。指定可用信息，如果变量的绑定不明确，会抛出`AmbiguousBindingException`。
+
+* 如果上面的策略都失败了，就会抛出`IllegalArgumentException`。
+
+
+
+**处理参数**
+
+前面提到过，将描述如何编写一个在Spring AOP和AspectJ中始终有效的`proceed`参数调用。解决方案是确保通知签名按顺序绑定每个方法参数：
+
+```java
+@Around("execution(List<Account> find*(..)) && " +
+        "com.xyz.myapp.CommonPointcuts.inDataAccessLayer() && " +
+        "args(accountHolderNamePattern)")
+public Object preProcessQueryPattern(ProceedingJoinPoint pjp,
+        String accountHolderNamePattern) throws Throwable {
+    String newPattern = preProcess(accountHolderNamePattern);
+    return pjp.proceed(new Object[] {newPattern});
+}
+```
+
+在许多情况下，无论如何都要进行此绑定（如上面的例子展示的一样）。
+
+
+
+**通知排序**
+
+当多个通知都想在相同的连接点运行时，将会发生什么？Spring AOP遵循与AspectJ相同的优先级规则来确定通知执行的顺序。优先级最高的通知在”进入时“首先运行（因此，两个指定的before advice，其中一个高优先级的会首先运行）。从连接点”离开时“，优先级的通知最后运行（因此，两个指定的after advice，高优先级的将会最后运行）。
+
+
+
+当定义在不同切面中的两个通知都需要在相同的切点运行时，除非指定，否则执行顺序是未定义的。可以通过指定优先级来控制执行顺序。可以通过常规的Spring方法在切面类中实现`org.springframework.core.Ordered`接口或使用`@Order`注解来完成。指定的两个切面，切面从`Ordered.getOrder()`（或注解值）返回的教小的值具有较高的优先级。
+
+
+
+| 从概念上讲，特定切面的每种不同类型的通知可直接应用于连接点。作为结果，`@AfterThrowing`通知不支持从伴随的`@After`/`@AfterReturning`方法中接收异常。<br/>5.2.7以后的Spring框架，在相同的`@Aspect`类中定义的需要在统一连接点上运行的通知方法，将根据通知类型从高到底的优先级进行分配：`@Around`，`@Before`，`@After`，`@AfterReturning`，`@AfterThrowing`。注意，在相同切面的任何`@AfterReturning`或`@AfterThrowing`通知方法之后，都会有效地调用`@After`通知方法，对于`@After`来说，它遵循了AspectJ的"after finally advice"语义。<br/><br/>当在相同的`@Aspect`类中定义的两个相同类型的通知（例如，两个`@After`通知方法）都需要在相同的切点上运行时，排序是未定义的（因为没有办法通过反射对编译好的类获取源代码声明的顺序）。考虑将此类通知方法分解为每个@Aspect类中的每个连接点的一个通知方法，或者将通知碎片重构为单独的@Aspect类，您可以在切面级别通过Ordered或@Order排序这些类。 |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 
 
