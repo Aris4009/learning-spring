@@ -1852,7 +1852,7 @@ public class Account {
 }
 ```
 
-当以这种方式作为标记接口使用时，Spring通过使用与完全限定类型名称(com.xyz.myapp.domain.Account)相同的bean定义(通常是原型作用域)来配置注释类型(在本例中是Account)的新实例。由于bean的默认名称是其类型的全限定名，因此，声明原型定义的便捷方法是省略`id`属性：
+当以这种方式作为标记接口使用时，Spring通过使用与完全限定类型名称(com.xyz.myapp.domain.Account)相同的bean定义(通常是原型作用域)来配置注解类型(在本例中是Account)的新实例。由于bean的默认名称是其类型的全限定名，因此，声明原型定义的便捷方法是省略`id`属性：
 
 ```xml
 <bean class="com.xyz.myapp.domain.Account" scope="prototype">
@@ -1874,3 +1874,169 @@ public class Account {
 ```
 
 Spring现在寻找一个名为account的bean定义，并将其用作配置新Account实例的定义。
+
+
+
+还可以使用autowiring自动装配来避免指定专用bean定义。为了让Spring应用自动装配，可以分别使用`@Configurable`注解中的`autowire`属性或`@Congigurable(autowire=Autowire.BY_TYPE)`或`@Configurable(autowire=Autowire.BY_NAME)`。作为一种替代方案，最好是在字段或方法级别通过@Autowired或@Inject为`@Configurable`bean指定显式的、注释驱动的依赖注入(有关进一步细节，请参阅基于注解的容器配置)。
+
+
+
+最后，可以使用`dependencyCheck`属性（例如，`@Configurable(autowire=Autowire.BY_NAME,dependencyCheck=true)`）为新创建的对象引用和配置的对象中的对象引用启用Spring依赖检查。如果这个属性设置为`true`，Spring在配置后会验证是否已经设置所有属性（不是基本类型或集合）。
+
+
+
+注意，单独使用注解不会执行任何操作。`spring-aspects.jar`中的`AnnotationBeanConfigurerAspect`对注解的存在起作用。从本质上讲，从带有`@Configurable`注解类型的新对象的初始化返回之后，使用Spring根据注解的属性配置新创建的对象。在这个上下文中，”初始化“指新创建一个实例对象（例如，通过带有`new`的操作符实例化一个对象）以及正在进行反序列化的`Serializable`对象（例如，通过`readResolve()`）。
+
+
+
+ 
+
+| 上述段落的关键词是“本质上”。大多数情况下，”从新对象的初始化返回后“的确切语义是可以的。在这个上下文中，”初始化之后“意味着依赖在对象构造之后被注入。也意味着在类的构造函数体中，依赖是不可用的。如果想要依赖在构造体运行之前被注入并且在构造函数体中可用，需要像如下声明`@Configurable`： |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+
+```java
+@Configurable(preConstruction = true)
+```
+
+| 可以在切面编程指南的附录中找到有关AspectJ中各种切点类型的语言语义的更多信息。 |
+| ------------------------------------------ |
+
+
+
+为此，必须将带注解的类型与AspectJ编织器编织在一起。可以使用Ant或Maven来完成（例如，AspectJ开发环境指南）或加载时织入（在Spring框架中，使用AspectJ加载织入）。`AnnotationBeanConfigurerAspectJ`本身需要通过Spring来配置（为了包含对bean factory的引用来配置新对象）。如果使用基于Java的配置，可以增加`@EnableSpringConfigured`在任意的`@Configuration`类中：
+
+```java
+@Configuration
+@EnableSpringConfigured
+public class AppConfig {
+}
+```
+
+如果使用的是XML配置，Spring中的`context`命名空间定义了一个方便的`context:spring-configured`元素：
+
+```xml
+<context:spring-configured/>
+```
+
+在配置切面之前创建的`@Configurable`对象的实例导致向调试日志发出消息，并且未进行对象配置。一个例子是Spring配置中的bean，它由Spring初始化时创建对象。在这个例子中，可以使用`depends-on`的bean属性来手动指定那些需要依赖的配置切面。下面的例子展示了如何使用`depends-on`属性：
+
+```xml
+<bean id="myService"
+        class="com.xzy.myapp.service.MyService"
+        depends-on="org.springframework.beans.factory.aspectj.AnnotationBeanConfigurerAspect">
+
+    <!-- ... -->
+
+</bean>
+```
+
+
+
+| 除非真的想要在运输时依赖它的语义，否则不要通过bean配置器来激活`@Configurable`处理。特别是，确保不要在通过容器注册为常规Spring bean的类上使用`@Configurable`。这样做会导致两次初始化，一次是通过容器，一次是通过切面。 |
+| --------------------------------------------------------------------------------------------------------------------------------- |
+
+
+
+**单元测试`@Configurable`对象**
+
+`@Congigurable`支持的其中一个目标是实现领域对象的独立单元测试，而不会遇到与硬编码查找相关的困难。如果不是通过AspectJ来织入`@Configurable`类型，则注解在单元测试期间没有效果。可以在被测试对象中设置模拟或存根属性引用，然后照常引用。如果是通过AspectJ织入的，仍然可以像往常一样在容器外部进行单元测试，但是每次构造`@Configurable`对象时，都会看到一条警告信息，指示它尚未由Spring配置。
+
+
+
+**使用多个Application Contexts**
+
+用于实现`@Configurer`支持的`AnnotationBeeanConfigurerAspect`是AspectJ单例切面。单例切面的作用域与`static`静态成员的作用域一样：每个类加载器有一个切面实例来定义类型。这意味着，如果在同一个类加载器层次结构中定义了多个应用程序上下文，需要考虑在哪里定义`@EnableSpringConfigured` bean以及在类路径上将`spring-aspects.jar`放在哪里。
+
+
+
+思考一个典型的Spring web应用配置，它有一个共享的父应用程序上下文来定义公共业务服务，支持这些服务所需要的一切，以及每个servlet的子应用程序上下文（包含特定于该servlet的定义）。所有这些上下文共存于同一类加载器层次结构中，因此，`AnnotationBeanConfigurerAspect`只能保存对其中一个的引用。在这种情况下，建议在共享的应用程序上下文中（父应用程序上下文）定义`EnableSpringConfigured` bean。这定义了可能想注入领域对象的服务。结果是，无法使用`@Configurable`即使来配置领域对象，而该领域对象将引用在子上下文中定义的bean的引用。
+
+
+
+当使用相同的容器部署多个web应用程序时，确保每个web应用程序通过它自己的类加载器（例如，通过将`spring-aspectj.jar`放置在`WEB-INF/lib`目录下）加载`spring-aspects.jar`。如果`spring-aspects.jar`添加到了容器及的类路径中（并因此通过共享的父类加载器加载），则所有web应用程序都共享相同的切面实例（这种情况可能并不是想要的）。
+
+
+
+### 5.10.2. AspectJ的其他Spring切面
+
+除了`@Configurable`切面，`spring-aspects.jar`包含了可以用来驱动类型的Spring事务管理器和带有`@Transactional`注解的方法的AspectJ切面。这主要适用于希望在Spring容器之外使用Spring框架的事务支持的用户。
+
+
+
+解释`@Transactional`注解的切面是`AnnotationTransactionAspect`。当使用这个切面时，必须注解实现类（或类中的方法或两者），不是该类实现的接口。AspectJ遵循Java的规则，即不继承接口上的注解。
+
+
+
+类上的`@Transactional`注解对于在类中的任何公共操作的执行指定了默认的事务语义。
+
+
+
+方法上的`@Transactional`注解将覆盖类注解（如果存在），并给出默认的事务语义。任何可见的方法都能被注解，包括private方法。直接注释非公共方法是为这些方法的执行获得事务界定的唯一方法。
+
+
+
+| 从Spring框架4.2以后，`spring-aspect`提供一个精简的切面，为标准的`javax.transaction.Transactional`注解提供完全相同的功能。查看`JtaAnnotationTransactionAspect`获取更多信息。 |
+| ---------------------------------------------------------------------------------------------------------------------------------- |
+
+
+
+对于那些想要使用Spring配置和事务管理器的支持但又不想使用注解的程序员来说，`spring-aspects.jar`也包含了`abstract`切面，可以扩展它来提供自定义的切点定义。参考`AbstractBeanConfigurerAspect`和`AbstractTransactionAspect`的切面代码来查看更多信息。例如，下面的例子展示了如何编写切面来使用与全限定类名匹配的原型bean定义来配置领域模型中定义的对象的所有实例：
+
+
+
+```java
+public aspect DomainObjectConfiguration extends AbstractBeanConfigurerAspect {
+
+    public DomainObjectConfiguration() {
+        setBeanWiringInfoResolver(new ClassNameBeanWiringInfoResolver());
+    }
+
+    // the creation of a new bean (any object in the domain model)
+    protected pointcut beanCreation(Object beanInstance) :
+        initialization(new(..)) &&
+        CommonPointcuts.inDomainModel() &&
+        this(beanInstance);
+}
+```
+
+
+
+### 5.10.3. 通过使用Spring IoC来配置AspectJ切面
+
+当通过Spring应用程序使用AspectJ切面时，很自然地希望并期望能够使用Spring配置这些切面。AspectJ运行时本身负责创建切面，通过Spring配置AspectJ创建的切面的方式，取决于切面所使用的AspectJ实例化模型（pre-xxx子句）。
+
+
+
+大多数的AspectJ切面是单例切面。配置这些切面非常容易。可以创建一个bean definition以正常方式引用切面类型，并且包含`factory-method="aspectOf"`的bean属性。这保证了Spring包含通过请求AspectJ获得的实例而不是自己尝试创建一个实例。下面展示了如何使用`factory-method="aspectOf"`属性：
+
+```xml
+<bean id="profiler" class="com.xyz.profiler.Profiler"
+        factory-method="aspectOf"> 
+
+    <property name="profilingStrategy" ref="jamonProfilingStrategy"/>
+</bean>
+```
+
+<mark>1</mark>注意`factory-metohd="aspectOf"`属性。
+
+
+
+非单例切面非常难配置。但是，可以通过创建原型bean定义并使用`spring-aspects.jar`中的`@Configurable`支持来实现，一旦他们由AspectJ运行并创建了bean，就可以配置切面实例。
+
+
+
+如果想要通过AspectJ（例如，使用加载织入领域对象类型）织入一些@AspectJ切面，并且其他@AspectJ切面要通过Spring AOP使用，并且这些切面都配置在Spring中，需要告诉Spring AOP @AspectJ自动代理支持，应该使用配置中定义的@AspectJ切面的确切子集进行自动代理。可以通过在`<aop:aspectj-autoproxy/>`声明中使用一个或多个`<include/>`元素来执行此操作。每个`<include、>`元素指定一个名字模式，并且只有名称与至少一种模式匹配的bean才能用于Spring AOP自动代理配置：
+
+```xml
+<aop:aspectj-autoproxy>
+    <aop:include name="thisBean"/>
+    <aop:include name="thatBean"/>
+</aop:aspectj-autoproxy>
+```
+
+
+
+| 不要被`<aop:aspectj-autoproxy>`元素的名称迷惑。 |
+| ------------------------------------ |
+
+

@@ -1,0 +1,61 @@
+//
+// Source code recreated from a .class file by IntelliJ IDEA
+// (powered by FernFlower decompiler)
+//反编译后的代码
+
+package com.example.demo._5_10_1._1;
+
+import org.aspectj.lang.JoinPoint;
+import org.aspectj.runtime.reflect.Factory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Configurable;
+import org.springframework.beans.factory.aspectj.AbstractDependencyInjectionAspect;
+import org.springframework.beans.factory.aspectj.AnnotationBeanConfigurerAspect;
+import org.springframework.beans.factory.aspectj.ConfigurableObject;
+
+@Configurable
+public class PersonObject implements ConfigurableObject {
+    private int id;
+    private String name;
+    @Autowired
+    private IdService idService;
+
+    public PersonObject(String name) {
+        JoinPoint var3 = Factory.makeJP(ajc$tjp_1, this, this, name);
+        JoinPoint var2 = Factory.makeJP(ajc$tjp_0, this, this);
+        if (this != null && this.getClass().isAnnotationPresent(Configurable.class) && AnnotationBeanConfigurerAspect.ajc$if$bb0((Configurable)this.getClass().getAnnotation(Configurable.class))) {
+            AnnotationBeanConfigurerAspect.aspectOf().ajc$before$org_springframework_beans_factory_aspectj_AbstractDependencyInjectionAspect$1$e854fa65(this);
+        }
+
+        if (this != null && this.getClass().isAnnotationPresent(Configurable.class) && (this == null || !this.getClass().isAnnotationPresent(Configurable.class) || !AnnotationBeanConfigurerAspect.ajc$if$bb0((Configurable)this.getClass().getAnnotation(Configurable.class))) && AbstractDependencyInjectionAspect.ajc$if$6f1(var2)) {
+            AnnotationBeanConfigurerAspect.aspectOf().ajc$afterReturning$org_springframework_beans_factory_aspectj_AbstractDependencyInjectionAspect$2$1ea6722c(this);
+        }
+
+        this.name = name;
+        if (!AnnotationBeanConfigurerAspect.ajc$if$bb0((Configurable)this.getClass().getAnnotation(Configurable.class)) && AbstractDependencyInjectionAspect.ajc$if$6f1(var3)) {
+            AnnotationBeanConfigurerAspect.aspectOf().ajc$afterReturning$org_springframework_beans_factory_aspectj_AbstractDependencyInjectionAspect$2$1ea6722c(this);
+        }
+
+    }
+
+    public int getId() {
+        this.id = this.idService.generateId();
+        return this.id;
+    }
+
+    public void setId(int id) {
+        this.id = id;
+    }
+
+    public String getName() {
+        return this.name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    static {
+        ajc$preClinit();
+    }
+}
