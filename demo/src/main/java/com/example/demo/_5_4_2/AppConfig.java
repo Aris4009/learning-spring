@@ -43,7 +43,7 @@ public class AppConfig {
 //		log.info("{}", context.isActive());
 //		log.info("{}", new Date(context.getStartupDate()).toString());
 //		log.info("{}", Arrays.toString(context.getBeanDefinitionNames()));
-		Service service = context.getBean("service", Service.class);
+		Service service = context.getBean("jdkRegexpMethodPointService", Service.class);
 		log.info("{}", service.getClass().getName());
 		service.sayNothing();
 		context.close();

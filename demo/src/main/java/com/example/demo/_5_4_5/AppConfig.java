@@ -27,7 +27,7 @@ public class AppConfig {
 		}
 		log.info("{},{}", service.getClass().getName(), service.hashCode());
 
-		UsageTracked usageTracked = (UsageTracked) context.getBean("service");
+		UsageTracked usageTracked = (UsageTracked) context.getBean("jdkRegexpMethodPointService");
 		log.info("{},{}", usageTracked.getClass().getName(), usageTracked.hashCode());
 	}
 }

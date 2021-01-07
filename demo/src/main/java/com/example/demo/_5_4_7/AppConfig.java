@@ -15,7 +15,7 @@ public class AppConfig {
 		context.scan("com.example.demo._5_4_7");
 		context.refresh();
 
-		Service service = context.getBean("service", Service.class);
+		Service service = context.getBean("jdkRegexpMethodPointService", Service.class);
 		service.buy("book1");
 //		service.buy(null);
 	}
