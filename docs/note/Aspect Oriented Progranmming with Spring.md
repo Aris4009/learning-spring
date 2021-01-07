@@ -434,8 +434,6 @@ args(java.io.Serializable)
 @args(com.xyz.security.Classified)
 ```
 
-
-
 | '@args'通常以绑定的形式使用。参考Declaring Advice，如何在通知体中让注解对象可用。 |
 | ---------------------------------------------------- |
 
@@ -449,8 +447,6 @@ bean(*Service)
 
 在编译期间，AspectJ处理切点以优化匹配性能。检查代码并且确定每个连接点是否匹配（静态或动态）指定的切点是一个昂贵的过程。（动态匹配意味着不能从静态分析中完全确定匹配，并且在代码中需要测试来决定在代码运行时的实际匹配）。首次遇到切点声明时，AspectJ将其重写为匹配过程的最佳形式。这意味着什么？基本上，切点以DNF（析取范式）重写，并且对切点的组件进行排序，以便首先检查那些比较廉价的组件。这意味着不需要担心了解各种切点指示器的性能并且可以在切点声明中以任何顺序提供他们。
 
-
-
 但是，AspectJ只能使用所告诉的内容。为了获得作家的匹配性能，应该考虑他们视图达到的目标，并在定义中尽可能缩小匹配的搜索空间。现有的指示符属于一下三类之一：类别，作用域和上下文：
 
 * 类别的指示符算则一个特殊类别的连接点：`execution`，`get`，`set`，`call`，`handler`。
@@ -461,13 +457,9 @@ bean(*Service)
 
 好的切点应该首先包含至少两类（类别和作用域）。可以包含上下文指示器来匹配基于连接点上下文或绑定为了在通知中使用上下文。由于额外的处理和分析，只提供一种指示器或只有一种上下文指示器工作可能会影响织入性能（时间和内存的使用）。作用域指示器匹配非常快，并且使用他们的用法意味着AspectJ可以非常迅速地消除不需要进一步处理一组连接点。一个好的切点如果在可能的情况下应该总是包含一个。
 
-
-
 ### 5.4.4. 声明通知
 
 通知与切点表达式关联，并且在切点匹配的方法之前、之后或周围运行。切点表达式可以是对命名切点的简单引用，也可以是直接声明的切点表达式。
-
-
 
 **Before Advice**
 
@@ -521,8 +513,6 @@ public class AfterReturningExample {
 }
 ```
 
-
-
 | 可以在同一个切面中拥有多个通知声明（以及其他成员）。在这些示例中，仅显示单个建议声明，以集中每个建议的效果。 |
 | ------------------------------------------------------ |
 
@@ -546,11 +536,7 @@ public class AfterReturningExample {
 
 在`returning`属性中使用的名称必须对应通知方法中的参数。当方法执行返回时，返回值作为相应参数值传入通知方法。一个`returning`语句也限制匹配那些返回值为指定类型的方法执行（在这个例子中，`Object`匹配任何返回类型）。
 
-
-
 注意，after returning advice使用时，不可能返回完全不同的引用。
-
-
 
 **After Throwing Advice**
 
@@ -590,8 +576,6 @@ public class AfterThrowingExample {
 
 在`throwing`属性中使用的名称必须和通知方法中的参数对应。当方法执行存在抛出异常时，异常作为相应的参数值传递到通知方法中。一个`throwing`语句也限制了仅匹配那些抛出指定异常的方法执行（`DataAccessException`）。
 
-
-
 | 注意，`AfterThrowing`不能标识一个通用异常处理的回调。特别是，`AfterThrowing`通知方法仅支持从连接点中获取异常（用户声明的目标方法），不能从伴随的`@After/@AfterReturning`方法中获取。 |
 | --------------------------------------------------------------------------------------------------------------------- |
 
@@ -613,8 +597,6 @@ public class AfterFinallyExample {
 }
 ```
 
-
-
 | 注意，AspectJ中的`@After`注解定义为`after finally advice`，与在try-catch语句中的finally块相似。对于任何结果，正常返回或连接点抛出的异常（用户声明的目标方法），它会被调用，与`@AfterReturning`相比，只能应用于成功的正常返回。 |
 | -------------------------------------------------------------------------------------------------------------------------------------------------- |
 
@@ -622,16 +604,10 @@ public class AfterFinallyExample {
 
 最后一类通知是环绕通知。环绕通知”环绕“一个匹配的方法执行。它能同事在方法运行的前后执行，并且可以确定何时，如何以及是否真正运行该方法。环绕通知常用来以线程安全的方式（例如，启动和停止计时器），需要在方法执行的前后共享状态。要使用最小符合要求的通知类型，也就是说，如果before advice能满足需求，就不要使用around advice。
 
-
-
 环绕通知通过使用`@Around`注解来声明。通知方法的第一个参数必须是`ProceedingJoinPoint`类型。使用通知体，调用`ProceedingJoinPoint`上的`proceed()`会使底层方法运行。这个`proceed`方法也可以传递一个`Object[]`。当方法继续执行时，数组中的值用来当做方法执行的参数。
-
-
 
 | 当使用`Object[]`调用时，`proceed`的行为与通过AspectJ编译器编译后的环绕通知的`proceed`行为有些不同。对于使用传统AspectJ语言编写的环绕通知，给`proceed`传递的参数数量必须与传递给环绕通知的参数数量相匹配（不是底层连接点接收的参数数量），并且，在指定参数位置中传递给proceed的值会取代在连接点的原始值（如果现在做没有意义，也不用担心）。Spring采取的方法更简单，并且更适合其基于代理的仅执行的语义。如果编译为Spring编写的@AspectJ切面，并在AspectJ边奇艺和weaver中使用参数进行处理，则只需要意识到这种差异即可。这里有一种可以写出100%同时匹配Spring AOP和AspectJ的方法，在`following section on advice parameters`章节中。 |
 | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-
-
 
 下面的例子展示了如何使用环绕通知：
 
@@ -655,13 +631,9 @@ public class AroundExample {
 
 通过环绕通知返回的值，是方法的调用者看到的返回值，例如，一个简单的缓存切面可以从缓存中返回值，如果没有，则调用`proceed()`。注意，`proceed`可能被调用一次、多次或完全不被调用。这些都是合法的。
 
-
-
 **通知参数**
 
 Spring提供了完整类型的通知，这意味着可以在通知签名中（前面我看看到的returning和throwing例子）需要的地方声明参数，而不是一直使用`Object[]`。将在本节的后面部分介绍如对于通知体，何使用参数和其他上下文值。先来看一下如何编写通用通知，以了解当前通知中的通知方法。
-
-
 
 **访问当前`JoinPoint`切点**
 
@@ -677,8 +649,6 @@ Spring提供了完整类型的通知，这意味着可以在通知签名中（�
 
 * `toString()`：打印有用的被通知方法的描述。
 
-
-
 **给通知传递参数**
 
 已经准备好如何绑定返回值或异常值（使用after returning和after throwing advice）。为了让通知体中的参数值可用，可以使用`args`的绑定形式。在参数表达式中，如果使用参数名代替类型名称，那么当通知被调用时，相应的参数值会作为参数进行传递。一个例子应该让这更清楚。假设希望使用`Account`对象作为第一个参数通知DAO操作执行，需要在通知体中访问这个account：
@@ -691,8 +661,6 @@ public void validateAccount(Account account) {
 ```
 
 这个表达式中的`arg(account,...)`部分有两个目的。首先，它限制了仅匹配那些至少有一个参数的方法执行并且传递的参数是`Account`实例。第二，通过`account`参数，让实际`Account`对象可用于通知中。
-
-
 
 另一种编写这种声明切点的方法是，当匹配一个连接点时，提供一个`Account`对象值，然后从通知中引用命名的切点：
 
@@ -708,11 +676,7 @@ public void validateAccount(Account account) {
 
 更多细节可参考AspectJ编程指南。
 
-
-
 代理对象`(this)`，目标对象`(target)`和注解`(@within,@target,@annotation,@args)`可以以相似形式进行绑定。下面两个例子展示了如何使用一个`@Auditable`注解来匹配方法注解的执行，并且提取审核代码：
-
-
 
 第一个例子定义了`@Auditable`注解：
 
@@ -733,8 +697,6 @@ public void audit(Auditable auditable) {
     // ...
 }
 ```
-
-
 
 **通知参数和泛型**
 
@@ -766,8 +728,6 @@ public void beforeSampleMethod(Collection<MyType> param) {
 ```
 
 为了让它有效，不得不检查集合中的每个元素，这是不合理的，因为无法决定如何处理`null`值。为了达到相似的目的，必须将参数键入`Collection<?>`作为参数，并手动检查参数类型。
-
-
 
 **确定参数名字**
 
@@ -804,11 +764,7 @@ public void audit(JoinPoint jp) {
 }
 ```
 
-
-
 * 使用`argNames`属性有一点笨拙，所以，如果`argNames`属性没有被指定，Spring AOP查看该类的调试信息并且尝试从本地变量表中决定参数名。只要已使用调试信息（至少是'-g:vars'）编译了类，这个信息就会存在。使用此标志进行编译的后果是：(1)代码更容易理解（反向工程师），(2)类文件的大小略大（通常无关紧要），(3)编译器未应用删除未使用的局部变量的优化。换句话说，通过启用此标志，应该不会遇到任何困难。
-
-
 
 | 如果通过AspectJ编译器（ajc）编译`@AspectJ`，甚至不需要调试信息，不需要增加`argNames`属性，因为编译器保留了所需的信息。 |
 | -------------------------------------------------------------------------- |
@@ -816,8 +772,6 @@ public void audit(JoinPoint jp) {
 * 如果编译的代码没有所需的调试信息，Spring AOP尝试推断绑定变量与参数的配对（例如，如果仅有一个变量绑定到切点表达式，并且通知方法仅接收一个参数，则配对很明显）。指定可用信息，如果变量的绑定不明确，会抛出`AmbiguousBindingException`。
 
 * 如果上面的策略都失败了，就会抛出`IllegalArgumentException`。
-
-
 
 **处理参数**
 
@@ -836,17 +790,11 @@ public Object preProcessQueryPattern(ProceedingJoinPoint pjp,
 
 在许多情况下，无论如何都要进行此绑定（如上面的例子展示的一样）。
 
-
-
 **通知排序**
 
 当多个通知都想在相同的连接点运行时，将会发生什么？Spring AOP遵循与AspectJ相同的优先级规则来确定通知执行的顺序。优先级最高的通知在”进入时“首先运行（因此，两个指定的before advice，其中一个高优先级的会首先运行）。从连接点”离开时“，优先级的通知最后运行（因此，两个指定的after advice，高优先级的将会最后运行）。
 
-
-
 当定义在不同切面中的两个通知都需要在相同的切点运行时，除非指定，否则执行顺序是未定义的。可以通过指定优先级来控制执行顺序。可以通过常规的Spring方法在切面类中实现`org.springframework.core.Ordered`接口或使用`@Order`注解来完成。指定的两个切面，切面从`Ordered.getOrder()`（或注解值）返回的教小的值具有较高的优先级。
-
-
 
 | 从概念上讲，特定切面的每种不同类型的通知可直接应用于连接点。作为结果，`@AfterThrowing`通知不支持从伴随的`@After`/`@AfterReturning`方法中接收异常。<br/>5.2.7以后的Spring框架，在相同的`@Aspect`类中定义的需要在统一连接点上运行的通知方法，将根据通知类型从高到底的优先级进行分配：`@Around`，`@Before`，`@After`，`@AfterReturning`，`@AfterThrowing`。注意，在相同切面的任何`@AfterReturning`或`@AfterThrowing`通知方法之后，都会有效地调用`@After`通知方法，对于`@After`来说，它遵循了AspectJ的"after finally advice"语义。<br/><br/>当在相同的`@Aspect`类中定义的两个相同类型的通知（例如，两个`@After`通知方法）都需要在相同的切点上运行时，排序是未定义的（因为没有办法通过反射对编译好的类获取源代码声明的顺序）。考虑将此类通知方法分解为每个@Aspect类中的每个连接点的一个通知方法，或者将通知碎片重构为单独的@Aspect类，您可以在切面级别通过Ordered或@Order排序这些类。 |
 | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -854,8 +802,6 @@ public Object preProcessQueryPattern(ProceedingJoinPoint pjp,
 ### 5.4.5. Introductions（引入）
 
 引入（在AspectJ中被声明为inner-type）使切面可以声明被通知对象实现指定接口，并且代表这些对象提供该接口的实现。
-
-
 
 通过使用`@DeclareParents`注解来创建一个introduction。这个注解用来声明匹配那些具有新的父类型。例如，指定一个名为`UsageTracked`接口，并且该接口的实现命名为`DefaultUsageTracked`，下面的切面声明了服务接口的所有实现者也实现了`UsageTracked`接口（例如，通过JMX进行统计）：
 
@@ -880,16 +826,12 @@ public class UsageTracking {
 UsageTracked usageTracked = (UsageTracked) context.getBean("myService");
 ```
 
-
-
 ### 5.4.5. 切面实例化模型
 
 | 这是一个高级主题。如果刚刚开始使用AOP，可以跳过这部分。 |
 | ----------------------------- |
 
 默认情况下，应用程序上下文中每个切面只有一个实例。AspectJ调用这个单例实例化的模型。可以用不同的生命周期来定义切面。Spring支持切面的`perthis`和`pertarget`实例化模型；`percflow`，`percflowbelow`和`pertypedwithin`目前不支持。
-
-
 
 通过在`@Aspect`注解上定义`perthis`语句声明一个`perthis`切面。思考下面的例子：
 
@@ -908,17 +850,11 @@ public class MyAspect {
 
 在上面的例子中，`perthis`语句的作用是对于每个唯一的servie对象，会创建一个切面实例，用来执行业务服务（每个唯一的对象在切点表达式匹配的连接点上绑定到`this`）。切面实例是在服务对象上的方法首次调用时被创建。当服务对象超出范围时，切面也超出了范围。在切面实例被创建之前，任何通知都不会运行。一旦创建了切面实例，其中声明的通知就会在匹配的连接点上运行，但是仅当服务对象是与此切面相关联的对象。参考AspectJ编程指南来获取`per`语句的更多信息。
 
-
-
 `pertarget`实例模型的工作与`perthis`相似，但是它在匹配的连接点上为每个唯一的目标对象创建一个切面实例。
-
-
 
 ### 5.4.7. 一个AOP的例子
 
 业务逻辑执行服务有时候由于并发问题可能会失败（例如，死锁）。如果重试该操作，则下次尝试可能会成功。对于那些在合适的条件下进行重试的业务逻辑服务来说（不需要返回用户那里来解决冲突的幂等操作），希望透明的重试该操作，以避免客户端看到`PessimisticLockingFailureException`。这是一个明显跨越服务层中的多个服务的需求，因此，非常适合通过一个方面来实现。
-
-
 
 因为想要重试该操作，需要使用环绕通知以便可以多次调用`proceed`。下面的例子展示了基本切面的实现：
 
@@ -961,11 +897,7 @@ public class ConcurrentOperationExecutor implements Ordered {
 }
 ```
 
-
-
 注意，这个切面实现了`Ordered`接口，因此可以将切面的优先级设置为高于事务通知的优先级（每次重试都希望有新的事务）。`maxRetries`和`order`属性都是通过Spring配置的。主要的操作发生在`doConcurrentOperation`的环绕通知中。注意，目前对每个`businessService()`应用了重试逻辑。尝试处理并且如果发生`PessimisticLockingFailureExcpetion`时，继续尝试，除非耗尽了所有的重试次数。
-
-
 
 相应的Spring配置如下：
 
@@ -977,8 +909,6 @@ public class ConcurrentOperationExecutor implements Ordered {
     <property name="order" value="100"/>
 </bean>
 ```
-
-
 
 尽在幂等操作下进行重试，所以重新定义一个幂等的切面注解`@Idempontent`：
 
@@ -1003,15 +933,9 @@ public Object doConcurrentOperation(ProceedingJoinPoint pjp) throws Throwable {
 
 如果更喜欢基于XML的格式，Spring也提供了使用`aop`命名空间标签来定义对切面的支持。支持与使用@AspectJ样式时具有完全相同的切点表达式和通知类型。因此，本章节将主要关注语法，并引导读者理解编写的切点表达式和通知参数的绑定。
 
-
-
 为了使用aop命名空间标签，需要导入spring-aop schema。
 
-
-
 在Spring配置中，所有切面和advisor元素必须放置在`<aop:config>`元素中（在应用程序上下文配置中，可以有多个`<aop:config>`元素）。一个`<aop:config>`元素可以包含切点，advisor和切面元素（注意，他们必须按顺序声明）。
-
-
 
 | `<aop:config>`风格的配置大量使用了Spring的自动代理机制。如果已经通过使用`BeanNameAutoProxyCreator`或其他相似的方法来使用显示的自动代理，则可能会导致问题（例如，未织入的通知）。推荐的做法是要么使用`<aop:config>`，要么使用`AutoProxyCreator`，并且不要混合使用。 |
 | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -1019,8 +943,6 @@ public Object doConcurrentOperation(ProceedingJoinPoint pjp) throws Throwable {
 ### 5.5.1. 声明一个切面
 
 当使用schema支持时，一个切面是一个常规的Java对象，它作为bean被定义到Spring应用程序上下文中。状态和行为记录在对象的字段和方法中，切点和通知信息记录在XML中。
-
-
 
 通过使用`<aop:aspect>`元素，可以声明一个切面，并且通过`<ref>`属性来引用该bean：
 
@@ -1038,13 +960,9 @@ public Object doConcurrentOperation(ProceedingJoinPoint pjp) throws Throwable {
 
 支持切面的bean当然可以像其他任何Spring bean一样进行配置并注入依赖。
 
-
-
 ### 5.5.2. 声明切点
 
 可以在`<aop:config>`元素中声明一个命名的切点，让切点定义可以跨多个切面和advisors来被共享。
-
-
 
 一个切点代表在service层中任何业务的执行：
 
@@ -1067,8 +985,6 @@ public Object doConcurrentOperation(ProceedingJoinPoint pjp) throws Throwable {
 
 </aop:config>
 ```
-
-
 
 假设有一个`CommonPointcuts`切面，然后在切面中声明一个切点与声明到顶级切点类似：
 
@@ -1102,10 +1018,7 @@ public Object doConcurrentOperation(ProceedingJoinPoint pjp) throws Throwable {
     </aop:aspect>
 
 </aop:config>
-
 ```
-
-
 
 通知必须通过包含匹配名称的参数来声明以接收收集到的连接点上下文，如下所示:
 
@@ -1134,13 +1047,9 @@ public void monitor(Object service) {
 
 注意，以这种方式定义的切点是由它们的XML id引用的，不能作为命名的切点来形成复合切点。因此，这种命名切点支持比@AspectJ样式所提供的更受限制。
 
-
-
 ### 5.5.5. 声明通知
 
 基于schema的AOP与`@AspectJ`风格具有相同的5中通知类型，并且他们具有相同的语义。
-
-
 
 **Before Advice**
 
@@ -1173,11 +1082,7 @@ Before advice在匹配的方法执行钱运行。它通过使用`<aop:before>`�
 
 正如在@AspectJ样式的讨论中指出的那样，使用命名切点可以显著提高代码的可读性。
 
-
-
 `method`属性标识了可以提供通知体的方法。必须为包含通知的切面元素所引用的bean定义此方法。在数据访问操作执行前（通过切点表达式匹配的方法执行连接点），在切面上的`doAccessCheck`方法会被调用。
-
-
 
 **After Returning Advice**
 
@@ -1214,8 +1119,6 @@ Before advice在匹配的方法执行钱运行。它通过使用`<aop:before>`�
 public void doAccessCheck(Object retVal) {...
 ```
 
-
-
 **After Throwing Advice**
 
 当匹配的方法执行存在一个可抛出的异常时，after throwing advice会运行：
@@ -1251,8 +1154,6 @@ public void doAccessCheck(Object retVal) {...
 public void doRecoveryActions(DataAccessException dataAccessEx) {...
 ```
 
-
-
 **After(Finally) Advice**
 
 无论匹配的方法执行结果怎样，after(finally) advice都会运行。可以通过使用`after`元素来声明它：
@@ -1268,13 +1169,9 @@ public void doRecoveryActions(DataAccessException dataAccessEx) {...
 </aop:aspect>
 ```
 
-
-
 **Around Advice**
 
 最后一种通知是around advice。它运行在匹配的方法的“周围”。它有机会同事在方法运行的前后来工作并决定何时、如何、甚至根本不运行该方法。环绕通知常被用来以线程安全的方式在方法执行前后共享状态（例如，启动和停止计时器）。总是要使用最小的通知类型来满足需求。不要在可以使用before advice就可以完成工作的情况下，使用环绕通知。
-
-
 
 通过使用`aop:around`元素来声明环绕通知。环绕通知的第一个参数必须是`ProceedingJoinPoint`类型。在通知体内，可以调用`ProceedingJoinPoint`上的`proceed()`方法来运行底层方法。`proceed`方法也可以传递一个`Object[]`对象。当需要调用时，数组的值会用作方法执行的参数:
 
@@ -1300,8 +1197,6 @@ public Object doBasicProfiling(ProceedingJoinPoint pjp) throws Throwable {
 }
 ```
 
-
-
 **通知参数**
 
 基于schema声明的样式支持完全类型化的通知，与`@AspectJ`支持的方式相同-通过依靠通知方法参数的名字来匹配切点参数。如果希望明确指定通知方法的参数名（不依赖于前面描述的检测策略），可以通过使用通知元素中的`arg-names`属性，它和注解通知的`argNames`属性一样：
@@ -1314,8 +1209,6 @@ public Object doBasicProfiling(ProceedingJoinPoint pjp) throws Throwable {
 ```
 
 属性`arg-names`接受逗号分割的参数列明。
-
-
 
 以下基于XSD的方法中涉及程度稍高的示例显示了一些与一些强类型参数结合使用的建议：
 
@@ -1390,8 +1283,6 @@ public class SimpleProfiler {
 </beans>
 ```
 
-
-
 思考下面的驱动脚本：
 
 ```java
@@ -1414,24 +1305,16 @@ public final class Boot {
 | StopWatch 'Profiling for 'Pengo' and '12'': running time (millis) = 0<br/>-----------------------------------------<br/>ms     %     Task name<br/>-----------------------------------------<br/>00000  ?  execution(getFoo) |
 | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 
-
-
 **Advice Ordering**
 
 当多个通知需要运行在相同的连接点时，在`Advice Ordering`中描述了排序的规则。切面之间的优先级是通过在`<aop:aspect>`元素中的`order`属性或在bean上增加`@Order`注解或通过bean实现`Ordered`接口来实现的。
 
-
-
 | 对比定义在`@Aspect`类中的通知方法的优先级，当定义在相同`<aop:aspect>`元素中的两个通知都需要在相同的连接点运行时，优先级由通知元素在封闭的`<aop:aspect>`元素中声明的顺序决定，从最高优先级到最低优先级。<br/>例如，指定的`around`通知和`before`通知定义在相同的`<aop:aspect>元素中，并应用于相同的连接点，为了确保``around`通知具有更高的优先级，`<aop:around>`元素必须声明在`<aop:before>`元素之前。<br/>作为一般经验，如果有多个通知定义在相同的`<aop:aspect>`元素中并应用与相同的连接点，考虑将这样的通知方法分解为每个`<aop:aspect>`元素中的每个连接点的一个通知方法，或者将通知的片段重构为单独的`<aop:aspect>`元素，可以在切面级别上对这些元素进行排序。 |
 | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-
-
 
 ### 5.5.4. Introductions（引入）
 
 引入（在AspectJ中为类型间声明）让切面以声明通知的对象实现指定接口，并代表那些对象提供该接口的实现。
-
-
 
 可以通过使用在`aop:aspect`中的`aop:declare-parents`元素来使用引入。可以使用`aop:declare-parents`元素来声明匹配的类型拥有新的父类。例如，指定一个名为`UsageTracked`接口并且该接口的实现为`DefaultUsageTracked`，下面的切面声明了服务接口的所有实现，也实现了`UsageTracked`接口。
 
@@ -1465,19 +1348,13 @@ public void recordUsage(UsageTracked usageTracked) {
 UsageTracked usageTracked = (UsageTracked) context.getBean("myService");
 ```
 
-
-
 ### 5.5.5. 切面实例模型
 
 单例模型是基于schema定义的切面唯一支持的模型。在未来的版本中，其他实例模型可能会被支持。
 
-
-
 ### 5.5.6. Advisors(顾问)
 
 概念Advisors来自定义在Spring中的AOP，在AspectJ中没有直接相等的概念。一个Advisor就像一个小的独立切面，只有一个通知。通知本身由bean表示，并且必须实现Spring通知类型中描述的通知接口之一。Advisors可以利用AspectJ切点表达式。
-
-
 
 通过`<aop:advisor>`元素来支持advisor的概念。它通常与事务通知结合使用，它具有自己的命名空间：
 
@@ -1502,11 +1379,7 @@ UsageTracked usageTracked = (UsageTracked) context.getBean("myService");
 
 像前面的例子一样，可以使用`pointcut`属性替换`pointcut-ref`来定义内联切点表达式。
 
-
-
 为了定义advisor的优先级，可以使用`order`属性来定义advisor中的`Ordered`值。
-
-
 
 ### 5.5.7.  一个AOP Schema的例子
 
@@ -1596,33 +1469,21 @@ public @interface Idempotent {
         @annotation(com.xyz.myapp.service.Idempotent)"/>
 ```
 
-
-
 ## 5.6. 选择AOP声明方式
 
 一旦确定了切面是实现给定需求的最佳方法，那么如何决定是使用Spring AOP还是使用AspectJ，是使用切面语言(代码)风格、@AspectJ注释风格还是使用Spring XML风格呢?这些决定受到许多因素的影响，包括应用程序需求、开发工具和团队对AOP的熟悉程度。
-
-
 
 ### 5.6.1. Spring AOP还是完整的AspectJ?
 
 使用最简单的方法即可。Spring AOP比使用完整的AspectJ更简单，没有在开发和构建过程中引入AspectJ编译器/织入器。如果仅仅需要在Spring beans上通知操作的执行，Spring AOP值正确的选择。如果需要通过Spring容器通知那些未被管理的对象（例如领域对象），需要使用AspectJ。如果希望通知初简单方法执行以外的连接点（例如，字段的get/set连接点等等），就需要使用AspectJ。
 
-
-
 当使用AspectJ时，需要选择AspectJ语言语法或@AspectJ注解风格。如果没有使用Java 5+，name可以选择使用代码样式。如果在设计中，切面扮演了重要的角色，并且能够使用Eclipse中的AspectJ Development Tools(AJDT)插件，AspectJ语言语法是首选。 它更干净、更简单，因为语言是专门为编写切面而设计的。 如果不使用Eclipse，或者只有少数切面在的应用程序中并且没有发挥主要作用，可能想要考虑使用@AspectJ风格，在IDE中坚持常规的Java编译，并在构建脚本中添加一个切面编织阶段。
-
-
 
 ### 5.6.2. 对于Spring AOP，使用@AspectJ还是XML
 
 如果选择使用Spring AOP，可以选择@AspectJ或XML风格。这里有多种这种的考虑。
 
-
-
 XML样式对已经存在的Spring用户来说非常熟悉，并且得到了真正的POJO支持。当使用AOP作为工具来配置企业级服务时，XML是一个好的选择（一个很好的测试是是否将切点表达式视为配置的一部分，而可能想独立更改）。使用XML样式，可以说从配置中可以更清楚地了解系统中存在哪些切面。
-
-
 
 XML风格有两个缺点。第一，它没有完全将要解决的需求的实现封装在一个地方。DRY原则说，系统中的任何知识都应该有一个单一、明确、权威的表示形式。当使用XML风格时，关于如何实现需求的知识分散在支持Bean类的声明和配置文件中的XML中。当使用@AspectJ风格时，此信息将封装在一个模块中：切面。第二，XML风格在表达能力上受到更多限制：仅支持单例切面的实例化模型，并且无法组合以XML声明的命名切点。例如，在@AspectJ风格中，可以写出下面的代码：
 
@@ -1649,27 +1510,17 @@ public void accountPropertyAccess() {}
 
 XML方法的缺点是不能通过组合这些定义来定义accountPropertyAccess切点。
 
-
-
 @Aspect风格支持附加的实例化模型和更丰富的切点组合。它的有点是保持切面作为模块化单元。另一个有点是Spring AOP和AspectJ都可以理解@AspectJ切面（并因此使用）。所以，如果以后决定需要AspectJ的功能来实现其他需求，可以轻松的迁移到经典的AspectJ设置。总而言之，Spring团队在自定义方面更喜欢@AspectJ样式，而不是简单地配置企业服务。
-
-
 
 ## 5.7. 混合Aspect类型
 
 通过使用自动代理支持、模式定义的`<aop:aspect>`切面、`<aop:advisor>`声明的顾问，甚至在同一配置中使用其他风格的代理和拦截器，完全有可能混合使用@AspectJ风格的切面。所有这些都是通过使用相同的底层支持机制实现的，可以毫无困难地共存。
 
-
-
 ## 5.8. 代理机制
 
 Spring AOP使用JDK动态代理或CGLIB来创建指定目标对象的代理。JDK动态代理包含在JDK中，CGLIB代理是一个通用的开源库（被重新打包到`spring-core`）中。
 
-
-
 如果要代理的目标对象至少实现了一个接口，JDK动态代理会被使用。目标类型实现的所有接口都会被代理。如果目标对象没有实现任何接口，就会使用CGLIB创建代理。
-
-
 
 如果想要强制使用CGLIB代理（例如，为目标对象代理每个定义的方法，不仅仅是实现了接口的那些方法），就可以这样做。然而，应该考虑下面的问题：
 
@@ -1698,8 +1549,6 @@ Spring AOP使用JDK动态代理或CGLIB来创建指定目标对象的代理。JD
 
 Spring AOP是基于代理的。在编写自己的切面或使用Spring框架随附的任何基于Spring AOP的切面之前，掌握最后一条语句实际含义的语义至关重要。
 
-
-
 思考第一个情景，如下面的代码所示，在这里一个普通的，未经过代理的，无特殊要求的直接对象引用：
 
 ```java
@@ -1720,8 +1569,6 @@ public class SimplePojo implements Pojo {
 
 ![](https://raw.githubusercontent.com/Aris4009/attachment/main/20210104164413.png)
 
-
-
 ```java
 public class Main {
 
@@ -1736,8 +1583,6 @@ public class Main {
 稍微做一下改变，客户端代码拥有一个代理的引用。思考如下的图示和代码片段
 
 ![](https://raw.githubusercontent.com/Aris4009/attachment/main/20210104164251.png)
-
-
 
 ```java
 public class Main {
@@ -1755,8 +1600,6 @@ public class Main {
 ```
 
 理解这里的关键点是，`main(...)`方法中的客户端代码引用了一个代理。这意味着该对象引用上的方法调用是对代理的调用。结果是，代理可以委派给与该特定方法调用的相关的所有拦截器（通知）。然而，一旦调用最终到达目标对象(在本例中是SimplePojo引用)，它可能对自身进行的任何方法调用，例如this.bar()或this.foo()，都将针对该引用而不是代理调用。这具有重要的意义。它意味着自身调用不会导致与方法调用相关的通知得到运行的机会。
-
-
 
 那应该怎么办呢？最好的办法是，重构代码，以免发生自调用。这缺失需要做一些工作，但这是做好的，侵入性最小的方法。下面的方法绝对是可怕的。可以将类中的逻辑与Spring AOP绑定在一起:
 
@@ -1794,13 +1637,9 @@ public class Main {
 
 最后，必须指出，AspectJ没有此自调用问题，因为它不是基于代理的AOP框架。
 
-
-
 ## 5.9. 编程方式创建@AspectJ代理
 
 除了通过使用`<aop:config>`或`<aop:aspectj-autoproxy>`在配置中声明切面，也可以通过编程的方式来创建代理以便通知目标对象。更多完整的细节，可以参考Spring的AOP API。这里，主要关注通过使用@AspectJ切面来自动创建代理的能力。
-
-
 
 可以使用`org.springframework.aop.aspectj.annotation.AspectJProxyFactory`类来为一个或多个@AspectJ切面通知的目标对象创建代理。这是一个非常简单的用法：
 
@@ -1819,25 +1658,17 @@ factory.addAspect(usageTracker);
 MyInterfaceType proxy = factory.getProxy();
 ```
 
-
-
 ## 5.10. 通过Spring Applications使用AspectJ
 
 到目前为止，本章介绍的所有内容都是纯Spring AOP。如果需求超出了Spring AOP单独提供的功能，将研究如何使用AspectJ编译器或织入器来代替Spring AOP。
 
-
-
 Spring附带了一个小的AspectJ切面库，在发行版中可以单独使用`spring-aspects.jar`。需要将它添加到classpath中以便使用切面功能。`使用AspectJ通过Spring来注入领域对象`和`AspectJ的其他Spring切面`讨论了这个库的内容并且展示了如何使用它。`通过Spring IoC来配置AspectJ切面`讨论了如何依赖注入使用了AspectJ编译器编织的AspectJ切面。最终，`在Spring框架中通过AspectJ载入织入`介绍了使用AspectJ的Spring应用程序的加载时编织。
-
-
 
 ### 5.10.1. 使用AspectJ来依赖注入Spring中的领域对象
 
 在应用程序上下文中，Spring容器负责实例化和配置beans定义。指定应用配置的bean
 
 定义名称，可能会要求bean工厂来配置一个预先存在的对象。`spring-aspects.jar`包含了一个注解驱动的切面，利用此功能允许依赖注入任何对象。该功能旨在用于任何容器的控制范围之外创建的对象。领域对象通常属于此类，因为他们通常是通过数据库查询的结果，使用`new`运算符或ORM工具以编程方式创建。
-
-
 
 注解`@Configurable`将一个类标记为合格的Spring驱动配置。在这个简单的例子中，可以将其纯粹用作标记注释：
 
@@ -1875,19 +1706,11 @@ public class Account {
 
 Spring现在寻找一个名为account的bean定义，并将其用作配置新Account实例的定义。
 
-
-
 还可以使用autowiring自动装配来避免指定专用bean定义。为了让Spring应用自动装配，可以分别使用`@Configurable`注解中的`autowire`属性或`@Congigurable(autowire=Autowire.BY_TYPE)`或`@Configurable(autowire=Autowire.BY_NAME)`。作为一种替代方案，最好是在字段或方法级别通过@Autowired或@Inject为`@Configurable`bean指定显式的、注释驱动的依赖注入(有关进一步细节，请参阅基于注解的容器配置)。
-
-
 
 最后，可以使用`dependencyCheck`属性（例如，`@Configurable(autowire=Autowire.BY_NAME,dependencyCheck=true)`）为新创建的对象引用和配置的对象中的对象引用启用Spring依赖检查。如果这个属性设置为`true`，Spring在配置后会验证是否已经设置所有属性（不是基本类型或集合）。
 
-
-
 注意，单独使用注解不会执行任何操作。`spring-aspects.jar`中的`AnnotationBeanConfigurerAspect`对注解的存在起作用。从本质上讲，从带有`@Configurable`注解类型的新对象的初始化返回之后，使用Spring根据注解的属性配置新创建的对象。在这个上下文中，”初始化“指新创建一个实例对象（例如，通过带有`new`的操作符实例化一个对象）以及正在进行反序列化的`Serializable`对象（例如，通过`readResolve()`）。
-
-
 
  
 
@@ -1900,8 +1723,6 @@ Spring现在寻找一个名为account的bean定义，并将其用作配置新Acc
 
 | 可以在切面编程指南的附录中找到有关AspectJ中各种切点类型的语言语义的更多信息。 |
 | ------------------------------------------ |
-
-
 
 为此，必须将带注解的类型与AspectJ编织器编织在一起。可以使用Ant或Maven来完成（例如，AspectJ开发环境指南）或加载时织入（在Spring框架中，使用AspectJ加载织入）。`AnnotationBeanConfigurerAspectJ`本身需要通过Spring来配置（为了包含对bean factory的引用来配置新对象）。如果使用基于Java的配置，可以增加`@EnableSpringConfigured`在任意的`@Configuration`类中：
 
@@ -1930,59 +1751,35 @@ public class AppConfig {
 </bean>
 ```
 
-
-
 | 除非真的想要在运输时依赖它的语义，否则不要通过bean配置器来激活`@Configurable`处理。特别是，确保不要在通过容器注册为常规Spring bean的类上使用`@Configurable`。这样做会导致两次初始化，一次是通过容器，一次是通过切面。 |
 | --------------------------------------------------------------------------------------------------------------------------------- |
-
-
 
 **单元测试`@Configurable`对象**
 
 `@Congigurable`支持的其中一个目标是实现领域对象的独立单元测试，而不会遇到与硬编码查找相关的困难。如果不是通过AspectJ来织入`@Configurable`类型，则注解在单元测试期间没有效果。可以在被测试对象中设置模拟或存根属性引用，然后照常引用。如果是通过AspectJ织入的，仍然可以像往常一样在容器外部进行单元测试，但是每次构造`@Configurable`对象时，都会看到一条警告信息，指示它尚未由Spring配置。
 
-
-
 **使用多个Application Contexts**
 
 用于实现`@Configurer`支持的`AnnotationBeeanConfigurerAspect`是AspectJ单例切面。单例切面的作用域与`static`静态成员的作用域一样：每个类加载器有一个切面实例来定义类型。这意味着，如果在同一个类加载器层次结构中定义了多个应用程序上下文，需要考虑在哪里定义`@EnableSpringConfigured` bean以及在类路径上将`spring-aspects.jar`放在哪里。
 
-
-
 思考一个典型的Spring web应用配置，它有一个共享的父应用程序上下文来定义公共业务服务，支持这些服务所需要的一切，以及每个servlet的子应用程序上下文（包含特定于该servlet的定义）。所有这些上下文共存于同一类加载器层次结构中，因此，`AnnotationBeanConfigurerAspect`只能保存对其中一个的引用。在这种情况下，建议在共享的应用程序上下文中（父应用程序上下文）定义`EnableSpringConfigured` bean。这定义了可能想注入领域对象的服务。结果是，无法使用`@Configurable`即使来配置领域对象，而该领域对象将引用在子上下文中定义的bean的引用。
 
-
-
 当使用相同的容器部署多个web应用程序时，确保每个web应用程序通过它自己的类加载器（例如，通过将`spring-aspectj.jar`放置在`WEB-INF/lib`目录下）加载`spring-aspects.jar`。如果`spring-aspects.jar`添加到了容器及的类路径中（并因此通过共享的父类加载器加载），则所有web应用程序都共享相同的切面实例（这种情况可能并不是想要的）。
-
-
 
 ### 5.10.2. AspectJ的其他Spring切面
 
 除了`@Configurable`切面，`spring-aspects.jar`包含了可以用来驱动类型的Spring事务管理器和带有`@Transactional`注解的方法的AspectJ切面。这主要适用于希望在Spring容器之外使用Spring框架的事务支持的用户。
 
-
-
 解释`@Transactional`注解的切面是`AnnotationTransactionAspect`。当使用这个切面时，必须注解实现类（或类中的方法或两者），不是该类实现的接口。AspectJ遵循Java的规则，即不继承接口上的注解。
-
-
 
 类上的`@Transactional`注解对于在类中的任何公共操作的执行指定了默认的事务语义。
 
-
-
 方法上的`@Transactional`注解将覆盖类注解（如果存在），并给出默认的事务语义。任何可见的方法都能被注解，包括private方法。直接注释非公共方法是为这些方法的执行获得事务界定的唯一方法。
-
-
 
 | 从Spring框架4.2以后，`spring-aspect`提供一个精简的切面，为标准的`javax.transaction.Transactional`注解提供完全相同的功能。查看`JtaAnnotationTransactionAspect`获取更多信息。 |
 | ---------------------------------------------------------------------------------------------------------------------------------- |
 
-
-
 对于那些想要使用Spring配置和事务管理器的支持但又不想使用注解的程序员来说，`spring-aspects.jar`也包含了`abstract`切面，可以扩展它来提供自定义的切点定义。参考`AbstractBeanConfigurerAspect`和`AbstractTransactionAspect`的切面代码来查看更多信息。例如，下面的例子展示了如何编写切面来使用与全限定类名匹配的原型bean定义来配置领域模型中定义的对象的所有实例：
-
-
 
 ```java
 public aspect DomainObjectConfiguration extends AbstractBeanConfigurerAspect {
@@ -1999,13 +1796,9 @@ public aspect DomainObjectConfiguration extends AbstractBeanConfigurerAspect {
 }
 ```
 
-
-
 ### 5.10.3. 通过使用Spring IoC来配置AspectJ切面
 
 当通过Spring应用程序使用AspectJ切面时，很自然地希望并期望能够使用Spring配置这些切面。AspectJ运行时本身负责创建切面，通过Spring配置AspectJ创建的切面的方式，取决于切面所使用的AspectJ实例化模型（pre-xxx子句）。
-
-
 
 大多数的AspectJ切面是单例切面。配置这些切面非常容易。可以创建一个bean definition以正常方式引用切面类型，并且包含`factory-method="aspectOf"`的bean属性。这保证了Spring包含通过请求AspectJ获得的实例而不是自己尝试创建一个实例。下面展示了如何使用`factory-method="aspectOf"`属性：
 
@@ -2019,11 +1812,7 @@ public aspect DomainObjectConfiguration extends AbstractBeanConfigurerAspect {
 
 <mark>1</mark>注意`factory-metohd="aspectOf"`属性。
 
-
-
 非单例切面非常难配置。但是，可以通过创建原型bean定义并使用`spring-aspects.jar`中的`@Configurable`支持来实现，一旦他们由AspectJ运行并创建了bean，就可以配置切面实例。
-
-
 
 如果想要通过AspectJ（例如，使用加载织入领域对象类型）织入一些@AspectJ切面，并且其他@AspectJ切面要通过Spring AOP使用，并且这些切面都配置在Spring中，需要告诉Spring AOP @AspectJ自动代理支持，应该使用配置中定义的@AspectJ切面的确切子集进行自动代理。可以通过在`<aop:aspectj-autoproxy/>`声明中使用一个或多个`<include/>`元素来执行此操作。每个`<include、>`元素指定一个名字模式，并且只有名称与至少一种模式匹配的bean才能用于Spring AOP自动代理配置：
 
@@ -2036,7 +1825,392 @@ public aspect DomainObjectConfiguration extends AbstractBeanConfigurerAspect {
 
 
 
-| 不要被`<aop:aspectj-autoproxy>`元素的名称迷惑。 |
-| ------------------------------------ |
+### 5.10.4. 在Spring框架中使用AspectJ加载时织入
+
+| Load-Time Weaving                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+|:---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| The AspectJ weaver takes class files as input and produces class files as output. The weaving process itself can take place at one of three different times: compile-time, post-compile time, and load-time. The class files produced by the weaving process (and hence the run-time behaviour of an application) are the same regardless of the approach chosen.                                                                                                                                                                        |
+| Compile-time weaving is the simplest approach. When you have the source code for an application, ajc will compile from source and produce woven class files as output. The invocation of the weaver is integral to the ajc compilation process. The aspects themselves may be in source or binary form. If the aspects are required for the affected classes to compile, then you must weave at compile-time. Aspects are required, e.g., when they add members to a class and other classes being compiled reference the added members. |
+| Post-compile weaving (also sometimes called binary weaving) is used to weave existing class files and JAR files. As with compile-time weaving, the aspects used for weaving may be in source or binary form, and may themselves be woven by aspects.                                                                                                                                                                                                                                                                                     |
+| Load-time weaving (LTW) is simply binary weaving defered until the point that a class loader loads a class file and defines the class to the JVM. To support this, one or more "weaving class loaders", either provided explicitly by the run-time environment or enabled through a "weaving agent" are required.                                                                                                                                                                                                                        |
+
+加载时织入（LTW）指将AspectJ切面加载到应用程序的类文件中时将其编织到Java虚拟机（JVM）中的过程。 本章节主要关注在Spring框架的特定上下文中配置和使用LTW，不是LTW的一般介绍。为获取更多关于LTW的信息，可以参考`AspectJ开发环境指南的LTW部分`[Chapter 5. Load-Time Weaving](https://www.eclipse.org/aspectj/doc/released/devguide/ltw.html)。
+
+
+
+Spring框架为AspectJ LTW带来的价值在于能够更细粒度的对织入过程进行控制。’Vanilla‘ AspectJ LTW是通过使用Java(5+)代理实现的，该代理在启动JVM时指定VM参数来打开。因此，它是一个JVM范围的设置，在某些情况下可能很好，但通常有点过于粗略。启用Spring的LTW可以基于每个classloader开启LTW，它的粒度更细，并且在“单个JVM多个应用程序环境中更有意义（例如，一个典型的应用程序服务器环境）。”
+
+
+
+此外，在某些环境中，这种支持加载时编织，而不需要对应用服务器的启动脚本进行任何修改，该脚本需要添加-javaagent:path/to/aspectjweaver.jar或(我们将在本节后面描述)-javaagent:path/to/spring- tool .jar。开发人员配置应用程序上下文以支持加载时编织，而不是依赖通常负责部署配置(如启动脚本)的管理员。
+
+
+
+现在首先浏览一个使用Spring的AspectJ LTW的快速示例，然后详细介绍示例中引入的元素。有关完成示例，请参见 [Petclinic sample application](https://github.com/spring-projects/spring-petclinic)。
+
+
+
+**第一个例子**
+
+假设你是一个应用程序开发人员，负责诊断系统中的性能问题。相比使用性能分析工具，不如使用一个简单的分析切面，使我们能够快速的获得一些性能指标。然后，可以立即在该特定区域应用更细粒度的分析工具。
+
+
+
+| 这里的例子使用了XML配置。也可以使用@AspectJ注解。尤其是，可以使用`@EnableLoadTimeWeaving`注解来代替`<context:load-time-weaver/>`。 |
+| ------------------------------------------------------------------------------------------------- |
+
+下面的例子展示了性能切面，但并不花哨。这是一个基于时间的分析器，使用@AspectJ风格的切面声明。
+
+
+
+```java
+package foo;
+
+import org.aspectj.lang.ProceedingJoinPoint;
+import org.aspectj.lang.annotation.Aspect;
+import org.aspectj.lang.annotation.Around;
+import org.aspectj.lang.annotation.Pointcut;
+import org.springframework.util.StopWatch;
+import org.springframework.core.annotation.Order;
+
+@Aspect
+public class ProfilingAspect {
+
+    @Around("methodsToBeProfiled()")
+    public Object profile(ProceedingJoinPoint pjp) throws Throwable {
+        StopWatch sw = new StopWatch(getClass().getSimpleName());
+        try {
+            sw.start(pjp.getSignature().getName());
+            return pjp.proceed();
+        } finally {
+            sw.stop();
+            System.out.println(sw.prettyPrint());
+        }
+    }
+
+    @Pointcut("execution(public * foo..*.*(..))")
+    public void methodsToBeProfiled(){}
+}
+```
+
+
+
+也需要创建一个`META-INF/aop.xml`文件，来通知AspectJ织入器想要织入`ProfilingAspect`到类中。 此文件约定，即在Java类路径上成为`META-INF/aop.xml`的一个或多个文件的存在，是标准的AspectJ。下面的例子展示了`aop.xml`文件：
+
+```xml
+<!DOCTYPE aspectj PUBLIC "-//AspectJ//DTD//EN" "https://www.eclipse.org/aspectj/dtd/aspectj.dtd">
+<aspectj>
+
+    <weaver>
+        <!-- only weave classes in our application-specific packages -->
+        <include within="foo.*"/>
+    </weaver>
+
+    <aspects>
+        <!-- weave in just this aspect -->
+        <aspect name="foo.ProfilingAspect"/>
+    </aspects>
+
+</aspectj>
+```
+
+现在，可以继续进行配置中的特定Spring部分。需要配置一个`LoadTimeWeaver`。这个织入器本质上是负责将一个或多`META-INF/aop.xml`文件中的切面配置编织到应用程序中。好的方面是它不需要大量的配置(可以指定更多的选项，但这些稍后会详细介绍)，如下面的示例所示:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns:context="http://www.springframework.org/schema/context"
+    xsi:schemaLocation="
+        http://www.springframework.org/schema/beans
+        https://www.springframework.org/schema/beans/spring-beans.xsd
+        http://www.springframework.org/schema/context
+        https://www.springframework.org/schema/context/spring-context.xsd">
+
+    <!-- a service object; we will be profiling its methods -->
+    <bean id="entitlementCalculationService"
+            class="foo.StubEntitlementCalculationService"/>
+
+    <!-- this switches on the load-time weaving -->
+    <context:load-time-weaver/>
+</beans>
+```
+
+现在，所有必须的部件（切面，`META-INF/aop.xml`文件和Spring配置）均已就绪，可以使用`main(..)`方法创建以下驱动程序类，以演示LTW的实际作用:
+
+```java
+package foo;
+
+import org.springframework.context.support.ClassPathXmlApplicationContext;
+
+public final class Main {
+
+    public static void main(String[] args) {
+        ApplicationContext ctx = new ClassPathXmlApplicationContext("beans.xml", Main.class);
+
+        EntitlementCalculationService entitlementCalculationService =
+                (EntitlementCalculationService) ctx.getBean("entitlementCalculationService");
+
+        // the profiling aspect is 'woven' around this method execution
+        entitlementCalculationService.calculateEntitlement();
+    }
+}
+```
+
+还有最后一件事。本节的引言说过，可以使用Spring在每个`classloader`的基础上选择性的打开LTW，这是事实。但是，对于这个例子，使用Java agent（Spring随附的）打开LTW。使用以下命令来运行显示的`Main`类：
+
+```shell
+java -javaagent:C:/projects/foo/lib/global/spring-instrument.jar foo.Main
+```
+
+
+
+`-javaagent`是一个特殊的标志位，是代理能够检测在JVM上运行的程序。Spring框架附带了这样的代理，`InstrumentationSavingAgent`，打包在`spring-instrument.jar`中，支持前面例子中的`-javaagent`参数。
+
+
+
+执行`Main`程序的输出看起来和下面的例子一样：
+
+```
+Calculating entitlement
+
+StopWatch 'ProfilingAspect': running time (millis) = 1234
+------ ----- ----------------------------
+ms     %     Task name
+------ ----- ----------------------------
+01234  100%  calculateEntitlement
+```
+
+
+
+因为这个LTW是通过使用成熟的AspectJ来实现的，因此不仅限于Spring beans。以下对Main程序的细微改动会产生相同的结果：
+
+```java
+package foo;
+
+import org.springframework.context.support.ClassPathXmlApplicationContext;
+
+public final class Main {
+
+    public static void main(String[] args) {
+        new ClassPathXmlApplicationContext("beans.xml", Main.class);
+
+        EntitlementCalculationService entitlementCalculationService =
+                new StubEntitlementCalculationService();
+
+        // the profiling aspect will be 'woven' around this method execution
+        entitlementCalculationService.calculateEntitlement();
+    }
+}
+```
+
+注意，在前面的程序中，启动了Spring容器并且创建了一个Spring上下文之外的`StubEntitlementCalculationService`实例。分析工具仍然会被应用。
+
+
+
+诚然，这个例子很简单。但是，Spring的LTW支持的基础已经在较早的示例中进行了介绍，本节的其余部分详细解释了每一位配置和用法背后的“原因”。
+
+
+
+| 例子中的`ProfilingAspect`可能是比较基础，但是非常有用。这是开发时间切面的一个很好的例子，开发人员可以在开发期间使用它，然后轻松地将其排除在部署到UAT或生产中的应用程序的构建中。 |
+| -------------------------------------------------------------------------------------------------- |
+
+
+
+**切面**
+
+在LTW中使用的切面必须是AspectJ切面。编写他们要么使用AspectJ语言本身，要么使用@AspectJ风格。切面在AspectJ和Spring AOP中都会有效。此外，编译的切面类需要在类路径上可用。
+
+
+
+**'META-INFO/aop.xml'**
+
+通过使用一个或多个`META-INFO/aop.xml`来配置AspectJ LTW基础设施，文件必须在Java classpath上（要么目录，更通用的在jar文件中）。
+
+
+
+这个文件的结构和内容的详细信息在 [AspectJ reference documentation](https://www.eclipse.org/aspectj/doc/released/devguide/ltw-configuration.html)中。因为`aop.xml`是100%的AspectJ,在这里不做更多的讨论。
+
+
+
+**需要的类库(JAR)**
+
+至少需要一下的库让Spring框架支持AspectJ LTW:
+
+* `spring-aop.jar`
+
+* `aspectjweaver.jar`
+
+
+
+如果使用Spring提供的instrumentation，也需要：
+
+* `spring-instrument.jar`
+
+
+
+**Sprnig配置**
+
+Spring的LTW支持中的关键组件是`LoadTimeWeaver`接口（在`org.springframework.instrument.classloading`包中），以及Spring发行版附带的大量实现。`LoadTimeWeaver`负责在运行时将一个或多个`java.lang.instrument.ClassFileTransformers`添加到`ClassLoader`，这为各种有趣的应用打开了大门，其中之一就是LTW切面。
+
+
+
+| 如果不熟悉运行时类文件转换的思想，可以参考javadoc API文档中有关`java.lang.instrument`包。虽然该文档不是很好理解，但至少可以看到关键的接口和类。 |
+| ---------------------------------------------------------------------------------------- |
+
+
+
+为特殊的`ApplicationContext`配置`LoadTimeWeaver`非常简单，仅需增加一行代码。（注意，几乎可以确定需要使用`ApplicationContext`作为Spring容器，通常，因为LTW支持使用`BeanFactoryPostProcessors`，`BeanFactory`是不够的）。
+
+
+
+为了开启Spring框架LTW支持，需要配置一个`LoadTImeWeaver`，通常使用`@EnableLoadTimeWeaving`注解来完成：
+
+```java
+@Configuration
+@EnableLoadTimeWeaving
+public class AppConfig {
+}
+```
+
+如果更喜欢XML配置，使用`<context:load-time-weaver/>`元素。注意，元素被定义在`context`命名空间中。下面展示了如何使用`<context:load-time-weaver/>`：
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns:context="http://www.springframework.org/schema/context"
+    xsi:schemaLocation="
+        http://www.springframework.org/schema/beans
+        https://www.springframework.org/schema/beans/spring-beans.xsd
+        http://www.springframework.org/schema/context
+        https://www.springframework.org/schema/context/spring-context.xsd">
+
+    <context:load-time-weaver/>
+
+</beans>
+```
+
+前面的例子自动定义和注册了大量的特殊LTW基础设施beans，例如`LoadTImeWeaver`和`AspectJWeavingEnabler`。默认的`LoadTimeWeaver`是`DefaultContextLoadTImeWeaver`类，尝试装饰自动检测到的`LoadTimeWeaver`。自动检测到的`LoadTimeWeaver`的确切类型取决于运行的环境。下面的表格总结了多种`LoadTimeWeaver`实现:
+
+
+
+| DefaultContextLoadTimeWeaver LoadTimeWeavers |
+| -------------------------------------------- |
+
+| 运行环境                                                                                      | `LoadTimeWeaver`实现              |
+| ----------------------------------------------------------------------------------------- | ------------------------------- |
+| 运行在Apache Tomcat                                                                          | `TomcatLoadTimeWeaver`          |
+| 运行在GlassFish(仅限EAR部署)                                                                     | `GlassFishLoadTimeWeaver`       |
+| 运行在Red Hat的JBoss或WildFly                                                                  | `JBossLoadTimeWeaver`           |
+| 运行在IBM的WebSphere                                                                          | `WebSphereLoadTimeWeaver`       |
+| 运行在Oracle中的`WebLogic``                                                                    | `WebLogicLoadTimeWeaver`        |
+| 通过Spring `InstrumentationSavingAgent(java -javaagent:path/to/spring-instrument.jar)`启动JVM | `InstrumentationLoadTimeWeaver` |
+| 回退，期望基础ClassLoader遵循通用约定（即addTransformer和可选的getThrowawayClassLoader方法）                    | `ReflectiveLoadTimeWeaver`      |
+
+
+
+表格仅仅列出了当使用`DefaultContextLoadTimeWeaver`来自动检测到的`LoadTimeWeaver`。可以指定精确的`LoadTimeWeaver`来使用。
+
+
+
+为了通过Java配置指定一个`LoadTimeWeaver`，需要实现`LoadTimeWeaverConfigurer`接口并覆盖`getLoadTimeWeaver()`方法。下面的例子指定了`ReflectiveLoadTimeWeaver`：
+
+```java
+@Configuration
+@EnableLoadTimeWeaving
+public class AppConfig implements LoadTimeWeavingConfigurer {
+
+    @Override
+    public LoadTimeWeaver getLoadTimeWeaver() {
+        return new ReflectiveLoadTimeWeaver();
+    }
+}
+```
+
+如果使用XML配置，可以指定权证的全限定类名作为`<context:load-time-weaver/>`上的`weaver-class`属性值。下面是指定`ReflectiveLoadTimeWeaver`的例子：
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns:context="http://www.springframework.org/schema/context"
+    xsi:schemaLocation="
+        http://www.springframework.org/schema/beans
+        https://www.springframework.org/schema/beans/spring-beans.xsd
+        http://www.springframework.org/schema/context
+        https://www.springframework.org/schema/context/spring-context.xsd">
+
+    <context:load-time-weaver
+            weaver-class="org.springframework.instrument.classloading.ReflectiveLoadTimeWeaver"/>
+
+</beans>
+```
+
+
+
+稍后，可以使用`loadTimeWeaver`从Spring容器中检索由配置定义和注册的`LoadTimeWeaver`。记住，`LoadTimeWeaver`仅作为Spring LTW基础结构添加一个或多个`ClassFileTransformers`的机制而存在的。执行LTW的实际`ClassFileTransformer`是`ClassPreProcessorAgentAdapter`（来自`org.aspectj.weaver.loadtime`包）类。有关更多详细信息，请参见`ClassPerProcessorAgentAdapter`类的类级javadoc，因为实际上如何实现编写的细节不在本文档的讨论范围之内。
+
+
+
+配置的最后一个属性需要讨论：`aspectjWeaving`属性（如果使用XML，`aspectj-weaving`）。这个属性控制了LTW是否开启。它接受三个可能的值的其中一个，默认的值是`autodetect`，如果这个属性不存在。下面的表格总结了这三个可能的值：
+
+| 注解值          | XML值         | 解释                                                                       |
+| ------------ | ------------ | ------------------------------------------------------------------------ |
+| `ENABLED``   | `on``        | AspectJ织入开启，并且切面在合适的加载时间织入                                               |
+| `DISABLED`   | `off`        | 关闭LTW。在加载时没有切面被织入。                                                       |
+| `AUTODETECT` | `autodetect` | 如果Spring LTW基础设置可以找到至少一个`META-INF/aop.xml`文件，然后AspectJ织入开启，否则，它关闭。这是默认值。 |
+
+
+
+**特殊环境配置**
+
+最后一节包含了在应用程序服务器和web容器中使用Spring LTW支持时，需要做的其他设置和配置。
+
+
+
+**Tomcat,JBoss,WebSphere,WebLogic**
+
+Tomcat,JBoss/WildFly,IBM WebSphere 应用程序服务器和Oracle WebLogic服务器都听一个通用的`ClassLoader`用来捕获本地引入。Spring本地LTW能利用这些`ClassLoader`实现来提供AspectJ编织。可以挺简单的启用加载时编织。具体来说，无需修改JVM启动脚本即可添加`-javaagent:path/to/spring-instrument.jar`。
+
+
+
+注意，在JBoss,需要关闭应用程序服务器扫描，以防止它在应用程序实际启动之前加载类。一个快速的解决方法是将一个名为`WEB-INF/jboss-scanning.xml`的文件添加到您的工件中，其中包含以下内容：
+
+```xml
+<scanning xmlns="urn:jboss:scanning:1.0"/>
+```
+
+
+
+**通用Java应用程序**
+
+如果特定LoadTimeWeaver实现不支持的环境中需要类检测，则JVM代理是通用解决方案。对于这种情况，Spring提供了InstrumentationLoadTimeWeaver，它需要特定于Spring（但非常通用）的JVM代理spring-instrument.jar，并由常见的@EnableLoadTimeWeaving和`<context:load-time-weaver/>`设置自动检测。
+
+
+
+为了使用它，必须通过Spring代理来启动Java虚拟机，下面是JVM选项：
+
+```
+-javaagent:/path/to/spring-instrument.jar
+```
+
+
+
+注意，这需要修改JVM启动脚本，这可能会组织在应用程序环境中使用它（取决于服务器和操作策略）。也就是说，对于每个JVM一个应用程序的部署(例如独立的Springboot应用程序)，无论如何，通常都可以控制整个JVM的设置。
+
+
+
+## 5.11. 更多资源
+
+更多AspectJ信息可以在 [AspectJ website](https://www.eclipse.org/aspectj)中找到。
+
+
+
+*Eclipse AspectJ* By Adrian Colyer et.al.提供一个容易理解的介绍和关于AspectJ 语言的参考。
+
+
+
+强烈推荐`AspectJ in Action`第二版。全书主要关注AspectJ，但是有大量的通用AOP主题可以浏览。
 
 
