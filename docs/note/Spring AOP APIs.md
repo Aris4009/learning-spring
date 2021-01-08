@@ -189,7 +189,7 @@ class TestStaticPointcut extends StaticMethodMatcherPointcut {
 
 因为在Spring AOP中的切点是Java类而不是语言功能（如AspectJ），可以声明自定义切点，无论是静态的还是动态的。Spring中的自定义切点可以是任意复杂的。然而，建议尽可能使用AspectJ切点表达式语言。
 
-| Spring |
-| ------ |
+| Spring后续的版本可能通过JAD来支持意义切点-例如，更改目标对象中的实例变量的所有方法。 |
+| ----------------------------------------------- |
 
 
