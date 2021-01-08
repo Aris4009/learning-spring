@@ -141,4 +141,55 @@ Spring提供了一个方便的类名叫`RegexpMethodPointcutAdvisor`，让用户
 
 
 
+**属性驱动切点**
+
+静态切点的一个重要类型是元数据驱动的切点。这将使用元数据属性的值（通常是源码级别的元数据）。
+
+
+
+**动态切点**
+
+动态切点比静态切点更昂贵。他们考虑了方法参数以及静态信息。这意味着他们必须对每个方法的调用进行评估并且由于参数不同，因此无法缓存结果。
+
+
+
+主要的例子是`control flow`切点。
+
+
+
+**Control Flow Pointcuts 控制流切点**
+
+Spring控制流切点与AspectJ`cflow`切点概念上相似，尽管比AspectJ功能弱。（目前没有办法指定切点在与另一个切点匹配的连接点下运行）。控制流切点匹配当前调用栈。例如，如果连接点是通过在`com.mycompany.web`包中的方法或通过`SomeCaller`类调用的，则可能会触发。通过使用`org.springframework.aop.support.ControlFlowPointcut`类来指定控制流切点。
+
+| 控制流切点与其他动态切点相比，在运行时评估成本高得多。在Java1.4中，它是其他动态切点花费成本的5倍。 |
+| ----------------------------------------------------- |
+
+
+
+### 6.1.5. 切点超类
+
+Spring提供了有用的切点超类来帮助实现自定义的切点。
+
+
+
+因为静态切点最有用，应该尽可能子类化`StaticMethodMatcherPointcut`。这要求仅实现一个抽象方法（尽管可以覆盖其他方法来自定义行为）。下面的例子展示了如何子类化`StaticMethodMatcherPointcut`：
+
+```java
+class TestStaticPointcut extends StaticMethodMatcherPointcut {
+
+    public boolean matches(Method m, Class targetClass) {
+        // return true if custom criteria match
+    }
+}
+```
+
+
+
+### 6.1.6. 自定义切点
+
+因为在Spring AOP中的切点是Java类而不是语言功能（如AspectJ），可以声明自定义切点，无论是静态的还是动态的。Spring中的自定义切点可以是任意复杂的。然而，建议尽可能使用AspectJ切点表达式语言。
+
+| Spring |
+| ------ |
+
 
