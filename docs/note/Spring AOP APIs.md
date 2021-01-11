@@ -193,3 +193,448 @@ class TestStaticPointcut extends StaticMethodMatcherPointcut {
 | ----------------------------------------------- |
 
 
+
+## 6.2. Spring中的Advice API
+
+现在解释Spring AOP如何处理通知。
+
+
+
+### 6.2.1. Advice生命周期
+
+每个advice是一个Spring bean。一个advice实例可以被所有的被通知对象共享，或对于每个被通知对象都是唯一的。这对应的是per-class或per-instance通知。
+
+
+
+最常用的通知是per-class通知。例如事务advisors。他们不依赖于代理对象的状态或添加新状态。他们仅仅作用域方法和参数上。
+
+
+
+对于引入，per-instance通知是合适的，以支持混合。在这种情况下，通知将状态添加到代理对象。
+
+
+
+可以混合使用共享的和per-instance通知在同一个AOP代理中。
+
+
+
+### 6.2.2. Spring中的通知类型
+
+Spring提供了一系列的通知类型，并且可扩展来支持任意的通知类型。本节描述了基本概念和标准通知类型。
+
+
+
+**拦截环绕通知**
+
+Spring中最基础的通知类型是拦截环绕通知。
+
+
+
+对于使用方法拦截的环绕通知，Spring符合AOP `Alliance`接口。实现了`MethodInterceptor`接口和实现了环绕通知的类也应该实现如下接口：
+
+```java
+public interface MethodInterceptor extends Interceptor {
+
+    Object invoke(MethodInvocation invocation) throws Throwable;
+}
+```
+
+方法`invoke()中的``MethodInvocation`参数公开了被调用的方法，目标连接点，AOP代理和该方法的参数。方法`invoke()`应该返回调用结果：连接点的返回值。
+
+
+
+下面的例子展示了`MethodInterceptor`的实现：
+
+```java
+public class DebugInterceptor implements MethodInterceptor {
+
+    public Object invoke(MethodInvocation invocation) throws Throwable {
+        System.out.println("Before: invocation=[" + invocation + "]");
+        Object rval = invocation.proceed();
+        System.out.println("Invocation returned");
+        return rval;
+    }
+}
+```
+
+注意，调用`MethodInvocation`的`proceed()`方法。这将沿着拦截器联向下到达连接点。绝大多数拦截器调用这个方法并返回它的返回值。但是，`MethodINterceptor`与任何环绕通知一样，可以返回一个不同的值或抛出异常，而不是调用proceed方法。
+
+
+
+| `MethodInterceptor`实现提供了与其他符合AOP Alliance要求的AOP实现的互操作性。本节其余部分讨论的其他通知类型将实现常见的AOP概念，但以特定于Spring的方式。尽管使用具体的通知类型有一个优势，但是如果可能想在另一个AOP框架中运行切面，则在通知周围使用`MethodInterceptor`。注意，切点当前无法在框架之间互操作，并且AOP Alliance当前未定义切点接口。 |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+
+
+
+**前置通知**
+
+一个更简单的通知类型是前置通知。它不需要`MethodInvocation`对象，因为它尽在进入方法之前被调用。
+
+
+
+前置通知的主要优点是，不需要调用`proceed()`方法，因此，不会因疏忽而未能沿拦截器链继续前进。
+
+
+
+下面列出了`MethodBeforeAdvice`接口：
+
+```java
+public interface MethodBeforeAdvice extends BeforeAdvice {
+
+    void before(Method m, Object[] args, Object target) throws Throwable;
+}
+```
+
+(尽管通常的对象适用于字段拦截，但是Spring不太可能实现，但Spring的API设计允许先于字段通知)。
+
+
+
+注意，返回类型是`void`。前置通知可以在连接点运行前插入客户行为，但是不能改变返回值。如果前置通知抛出异常，它将停止进一步执行连接器链。异常会传播回拦截链。如果是未检查或在调用方法的签名上，则将其直接传递给客户端。否则，它将由AOP代理包装在未经检查的异常中。
+
+
+
+下面的例子展示了Spring中的前置通知，计算所有方法调用：
+
+```java
+public class CountingBeforeAdvice implements MethodBeforeAdvice {
+
+    private int count;
+
+    public void before(Method m, Object[] args, Object target) throws Throwable {
+        ++count;
+    }
+
+    public int getCount() {
+        return count;
+    }
+}
+```
+
+
+
+| 前置通知可以用于任何切点。 |
+| ------------- |
+
+
+
+**异常通知**
+
+异常通知是在连接点抛出异常返回后被调用的。Spring提供类型化的异常通知。注意，这意味着`org.springframework.aop.ThrowsAdvice`接口不包含任何方法。它是一个标签接口，用于标识指定对象实现了一个或多个类型化的异常通知方法。这些方法应采用一下形式：
+
+```java
+afterThrowing([Method, args, target], subclassOfThrowable)
+```
+
+只有最后一个参数是必须的。这个方法可以具有一个或4个参数，这依赖于通知方法是否对该方法和参数感兴趣。下面另个列表展示了异常通知的例子：
+
+
+
+下面的通知在抛出`RomoteException`时被调用（包括子类）：
+
+```java
+public class RemoteThrowsAdvice implements ThrowsAdvice {
+
+    public void afterThrowing(RemoteException ex) throws Throwable {
+        // Do something with remote exception
+    }
+}
+```
+
+与前面的通知不同，下面的例子声明了4个参数，因此它可以访问调用方法，方法参数，目标对象。如果抛出了`ServletException`，这个通知会被调用：
+
+```java
+public class ServletThrowsAdviceWithArguments implements ThrowsAdvice {
+
+    public void afterThrowing(Method m, Object[] args, Object target, ServletException ex) {
+        // Do something with all arguments
+    }
+}
+```
+
+最后的例子说明了可以在单独的类中使用这两种方法来处理`RemoteException`和`ServletException`。任意数量的异常通知方法可以组合到一个单独的类中：
+
+```java
+public static class CombinedThrowsAdvice implements ThrowsAdvice {
+
+    public void afterThrowing(RemoteException ex) throws Throwable {
+        // Do something with remote exception
+    }
+
+    public void afterThrowing(Method m, Object[] args, Object target, ServletException ex) {
+        // Do something with all arguments
+    }
+}
+```
+
+
+
+| 如果异常通知自身抛出异常，它会覆盖原始异常（也就是说，它改变了抛出的异常给用户）。这个覆盖的异常通常是RuntimeException，兼容任何方法签名。但是，如果异常通知抛出一个可检查的异常，它必须匹配目标方法声明的异常，因此在某种程度上耦合到了指定目标方法签名。不要抛出与目标方法签名不兼容的未声明的已检查异常！ |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+
+*异常通知可以对任何切点使用。*
+
+
+
+**后置返回通知**
+
+Spring中的后置返回通知必须实现`org.springframework.aoop.AfterReturningAdvice`接口：
+
+```java
+public interface AfterReturningAdvice extends Advice {
+
+    void afterReturning(Object returnValue, Method m, Object[] args, Object target)
+            throws Throwable;
+}
+```
+
+后置返回通知可以访问返回值（不能修改返回值）、调用的方法，方法的参数和目标对象。
+
+
+
+下面的后置返回通知统计了所有成功调用方法并且没有抛出异常：
+
+```java
+public class CountingAfterReturningAdvice implements AfterReturningAdvice {
+
+    private int count;
+
+    public void afterReturning(Object returnValue, Method m, Object[] args, Object target)
+            throws Throwable {
+        ++count;
+    }
+
+    public int getCount() {
+        return count;
+    }
+}
+```
+
+该通知不会改变执行路径。如果抛出异常，则会将其抛出到链接链而不是返回值。
+
+
+
+| 后置返回通知可以用于任意切点。 |
+| --------------- |
+
+
+
+**引入通知**
+
+Spring将引入通知作为一种特殊的拦截通知。
+
+
+
+引入需要实现`IntroductionAdvisor`和`IntroductionInterceptor`接口：
+
+```java
+public interface IntroductionInterceptor extends MethodInterceptor {
+
+    boolean implementsInterface(Class intf);
+}
+```
+
+从AOP Alliance `MethodInterceptor`接口集成的`invoke()`方法必须实现引入。也就是说，如果被调用的方法在引入接口上，则该引入负责拦截处理方法调用，不能调用`proceed()`。
+
+
+
+引入通知不能用于任意切点，它仅能应用于类，而不是方法级别。只能通过`IntroductionAdvisor`使用引入通知，它具有一下方法：
+
+```java
+public interface IntroductionAdvisor extends Advisor, IntroductionInfo {
+
+    ClassFilter getClassFilter();
+
+    void validateInterfaces() throws IllegalArgumentException;
+}
+
+public interface IntroductionInfo {
+
+    Class<?>[] getInterfaces();
+}
+```
+
+
+
+这些接口没有`MethodMatcher`，因此，没有与通知相关的切点。只有类过滤是合乎逻辑的。
+
+
+
+方法`getInterfaces()`返回此advisor引入的接口。
+
+
+
+内部使用`validateInterfaces()`方法来查看所有配置的`IntroductionInterceptor`是否可以实现引入的接口。
+
+
+
+思考Spring测试套件中的例子并且假设想要为一个或多个对象引入一下接口:
+
+```java
+public interface Lockable {
+    void lock();
+    void unlock();
+    boolean locked();
+}
+```
+
+希望将通知对象强制转换为`Lockable`，无论他们的类型和调用所和解锁方法如何。如果调用`lock()`方法，想要所有的setter方法抛出一个`LockedException`。因此，可以增加一个提供此能力的切面让对象在无需了解对象的情况下不可变：这是一个很好的AOP的例子。
+
+
+
+首先，需要一个`IntroductionInterceptor`来完成繁重的工作。在这种情况下，扩展`org.springframework.aop.support.DelegatingIntroductionInterceptor`是方便的类。可以直接实现`INtroductionInterceptor`，但是使用`DelegatingIntroductionInterceptor`在多数情况下更好。
+
+
+
+`DelegatingIntroductionInterceptor`旨在委派引入的接口的实际实现，从而隐藏了使用拦截的方式。可以使用构造函数将委派设置为任何对象。默认的委派（当无参构造器被使用时）是`this`。因此，在下一个例子中，委派是`DelegatingIntroductionInterceptor`的子类`LockMixin`。指定一个委派（默认是自身），`DelegatingIntroductionInterceptor`实例查找由该委派实现的所有接口（`IntroductionInterceptor`除外）并且针对其中任何一个引入。例如`LockMixin`的子类可以调用`suppressInterface(Class intf)`方法来禁止
+
+不应公开的接口。但是，无论`IntroductionInterceptor`准备支持多少个接口，`IntroductionAdvisor`用于控制实际公开哪些接口。引入的接口隐藏了目标对同一接口的任意实现。
+
+
+
+注意`locked`实例变量的使用。这有效地将状态附加到目标对象中保存的状态。
+
+
+
+下面的例子展示了`LockMixin`类：
+
+```java
+public class LockMixin extends DelegatingIntroductionInterceptor implements Lockable {
+
+    private boolean locked;
+
+    public void lock() {
+        this.locked = true;
+    }
+
+    public void unlock() {
+        this.locked = false;
+    }
+
+    public boolean locked() {
+        return this.locked;
+    }
+
+    public Object invoke(MethodInvocation invocation) throws Throwable {
+        if (locked() && invocation.getMethod().getName().indexOf("set") == 0) {
+            throw new LockedException();
+        }
+        return super.invoke(invocation);
+    }
+
+}
+```
+
+通常，不需要覆盖`invoke()`方法。`DelegatingIntroductionInterceptor`实现通常足以满足（如果引入了方法，则调用委托方法，否则进入到连接点）。在当前情况下，需要添加一个检查：如果处于锁定模式，则无法调用任何setter方法。
+
+
+
+所需的引入仅需要持有一个单独的`LockMixin`实例并且指定所引入的接口（在这种情况下，仅仅是`Lockable`）。一个更复杂的例子是可能引用了引入拦截器（它将被定义为原型）。在这种情况下，没有与`LockMixin`相关的配置，因此使用`new`来创建它，一下显示了`LockMixinAdvisor`类：
+
+```java
+public class LockMixinAdvisor extends DefaultIntroductionAdvisor {
+
+    public LockMixinAdvisor() {
+        super(new LockMixin(), Lockable.class);
+    }
+}
+```
+
+可以非常简单的应用此advisor，因为它不需要配置。（但是，如果没有`IntroductionAdvisor`，就无法使用`IntroductionInterceptor`）。像通常的引入一样，advisor必须是每个实例的，因为它是有状态的。需要不同的`LockMixinAdvisor`接口实例，因此`LockMixin`是对于每个被通知对象的。 Advisor包含被通知对象的部分状态。
+
+
+
+可以使用`Advised.addAdvisor()`方法以编程的方式应用advisor或（建议以这种方式）通过XML配置的方式。下文讨论的所有代理创建选择，包括“自动代理创建器”，都可以正确处理引入和有状态的混合。
+
+
+
+## 6.3. Spring中的Advisor API
+
+在Spring中，Advisor是一个切面，它包含了仅一个相关联的切点表达式的通知对象。
+
+
+
+除了引入的特殊情况，任何advisor可以用于任何通知。`org.springframework.aop.support.DefaultPointcutAdvisor`是最常用的advisor类。它可以与`MethodInterceptor`，`BeforeAdvice`或`ThrowAdvice`一直使用。
+
+
+
+在Spring中，相同的AOP代理可以混合使用advisor和advice类型。例如，可以使用拦截环绕通知，异常通知和前置通知在一个代理配置中。Spring自动创建所需的拦截链。
+
+
+
+## 6.4. 使用`ProxyFactoryBean`来创建AOP代理
+
+如果使用Spring IoC容器（`ApplicationContext`或`BeanFactory`），那么需要使用Spring AOP的`FactoryBean`实现之一。（记住，factory bean引入了一个间接层，让它创建不同类型的对象。）
+
+
+
+> Spring AOP还支持在后台使用factory beans。
+
+
+
+Spring中创建AOP代理的基本方式是使用`org.springframework.aop.framework.ProxyFactoryBean`。这样就可以完全控制切点、应用的任何通知以及它们的顺序。但是，如果不需要这样的控制，有一些更简单的选项是更好的。
+
+
+
+### 6.4.1.  基础
+
+`ProxyFactoryBean`，与其他Spring中的`FactoryBean`实现一样，引入一个间接层。如果定义了一个名为`foo`的`ProxyFatoryBean`，`ProxyFactoryBean`实例本身对`foo`引用的对象不可见，而看到的是由`ProxyFactoryBean`中的`getObject()`方法的实现创建的对象。
+
+
+
+使用`ProxyFactoryBean`或其他IoC-aware类来创建AOP代理的一个重要益处是通知和切点可以通过IoC来管理。这是一个强大的功能，支持其他AOP框架难以实现的某些方法。例如，通知自身可以引用应用程序对象（除了在任意AOP框架中可用的目标对象），得益于DI提供的所有可插拔性。
+
+
+
+### 6.4.2. JavaBean 属性
+
+与Spring附带的大多数`FactoryBean`实现一样，`ProxyFactoryBean`类本身就是JavaBean。它的属性被用来：
+
+* 指定要代理的目标
+
+* 指定是否使用CGLIB
+
+
+
+一些关键属性继承自`org.springframework.aop.framework.ProxyConfig`（Spring中所有AOP代理工厂的超类）。这些关键属性包括：
+
+* `proxyTargetClass`:`true`表示目标类被代理而不是目标类的接口。如果这个属性被设置为`true`，CGLIB代理会被创建。
+
+* `optiize`: 控制是否将主动优化应用于通过CGLIB创建的代理。除非完全理解相关的AOP代理如何处理优化，否则不应该轻率地使用这种设置。目前仅用于CGLIB代理。对JDK代理没有效果。
+
+* `frozen`:如果代理配置是`frozen`，就不允许改变配置。这对于进行轻微优化以及不希望调用者在创建代理后希望调用者（通过`Advised`接口）操纵代理的情况下都是有用的。这个属性的默认值是`false`，因此是允许改变的（例如增加附加的通知）。
+
+* `exposeProxy`:决定在`ThreadLocal`中是否应该暴露当前代理以便通过目标进行访问。如果目标需要获取代理并且`exposeProxy`属性被设置为`true`，目标可以使用`AopContext.currentProxy()`方法。
+
+
+
+`ProxyFactoryBean`中特有的其他属性包括：
+
+* `proxyInterfaces`:一个接口名称的`String`数组。如果没有提供，会使用CGLIB代理。
+
+* `interceptorNames`:一个字符串数组，包含`Advisor`,interceptor或其他通知名称。排序是非常重要的，根据先到先得的原则。也就是说，列表中的第一个拦截器会首先拦截方法调用。
+
+        名称是当前工厂的bean名称，包括从祖先工厂中的bean名称。不能在此提及bean引用，因为这样做会导致`ProxyFactoryBean`忽略通知的单例设置。
+
+        可以在拦截器名称后加上星号(*)。这样做会导致所有advisor bean的应用程序名称都以要应用的星号之前的部分开头。可以找到使用此功能的例子，在`Using Golbal Advisors`中。
+
+* singleton:工厂是否应该返回一个单例对象，无论调用`getObject()`多少次。一些`FactoryBean`实现提供这样的方法。默认的值是`true`。如果想要使用有状态的通知-例如，对于有状态的混合-使用原型通知以及单例值设置为`false`。
+
+
+
+### 6.4.3. JDK代理和CGLIB代理
+
+本部分是有关`ProxyFactoryBean`如何选择为特定目标对象（将被代理的对象）创建基于JDK的代理或CGLIB的代理的权威性文档。
+
+
+
+> 在Spring的1.2.x和2.0版本之间，`ProxyFactoryBean`的行为与创建基于JDK或CGLIB的代理有关。`ProxyFactoryBean`现在在自动检测接口方面表现出与`TransactionProxyFactoryBean`类有类似的语义。
+
+
+
+
+
+
+
+        
+
+
