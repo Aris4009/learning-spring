@@ -746,8 +746,172 @@ MyBusinessInterface tb = (MyBusinessInterface) factory.getProxy();
 
 
 
+## 6.7. 操纵通知对象
+
+虽然创建了AOP代理，但可以通过使用`org.springframework.aop.framework.Advised`接口来操纵他们。任何AOP代理对象可以被转换为这个接口，无论它实现了哪个其他接口。这个接口包含了如下方法：
+
+```java
+Advisor[] getAdvisors();
+
+void addAdvice(Advice advice) throws AopConfigException;
+
+void addAdvice(int pos, Advice advice) throws AopConfigException;
+
+void addAdvisor(Advisor advisor) throws AopConfigException;
+
+void addAdvisor(int pos, Advisor advisor) throws AopConfigException;
+
+int indexOf(Advisor advisor);
+
+boolean removeAdvisor(Advisor advisor) throws AopConfigException;
+
+void removeAdvisor(int index) throws AopConfigException;
+
+boolean replaceAdvisor(Advisor a, Advisor b) throws AopConfigException;
+
+boolean isFrozen();
+```
+
+方法`getAdvisors()`返回每个advisor返回一个`Advisor`，interceptor或其他被添加到工厂的通知类型。如果需要一个`Advisor`，该索引处返回的advisor是添加的对象。如果需要一个interceptor或其他通知类型，Spring将它包装在带有总是返回`true`的切点的advisor中。因此，如果增加了一个`MethodInterceprot`，该索引返回的advisor是一个`DefaultPointcutAdvisor`，它返回`MethodInterceprot`和一个与所有类和方法匹配的切点。
 
 
 
+方法`addAdvisor()`可以被用来添加任何`Advisor`，通常，advisor持有的切点和通知是通用的`DefaultPointcutAdvisor`，可以将它与任何通知或切点一起使用（但不能用于引入）。
+
+
+
+默认情况下，它能够添加，删除advisors或interceptors，即使代理已经创建。唯一的限制是不可能添加或删除引入advisor,因为工厂中已经存在的代理不会显示接口改变。（可以从工厂获取新的代理来避免此问题）。
+
+
+
+下面的例子展示了将AOP代理转换为`Advised`接口，检查并操作它的通知：
+
+```java
+Advised advised = (Advised) myObject;
+Advisor[] advisors = advised.getAdvisors();
+int oldAdvisorCount = advisors.length;
+System.out.println(oldAdvisorCount + " advisors");
+
+// Add an advice like an interceptor without a pointcut
+// Will match all proxied methods
+// Can use for interceptors, before, after returning or throws advice
+advised.addAdvice(new DebugInterceptor());
+
+// Add selective advice using a pointcut
+advised.addAdvisor(new DefaultPointcutAdvisor(mySpecialPointcut, myAdvice));
+
+assertEquals("Added two advisors", oldAdvisorCount + 2, advised.getAdvisors().length);
+```
+
+
+
+> 尽管可能存在合法的使用案例，但是是否建议修改生产中的业务对象的通知值得怀疑。但是，在开发阶段它非常有用（例如，测试）。有时候发现以拦截器或其他通知的形式添加测试代码，并进入要测试的方法调用中非常有用。（例如，该通知可以进入为该方法创建的事务中，也许可以在将事务标记为回滚之前运行SQL以检查数据库是否已正确更新）。
+
+
+
+根据创建代理的方式，通常可以设置`frozen`标志。在那个例子中，`Advised``isFrozen()`方法返回`true`，并且通过添加或删除来修改通知的任何尝试都会导致AopConfigException`。冻结通知对象状态的功能在某些情况下很有用（例如，防止调用代码删除安全拦截器）。
+
+
+
+## 6.6. 使用自动代理功能auto-proxy
+
+到目前为止，已经考虑了通过使用`ProxyFactoryBean`或相似的工厂bean来显示创建AOP代理。
+
+
+
+Spring也允许使用"auto-proxy"bean定义，它能自动代理选择的bean定义。它基于Spring的bean post processor基础架构，可以在容器加载时修改任何bean定义。
+
+
+
+在这个模型中，可以在XML的bean定义文件设置一些特别的bean定义来配置自动代理功能。这使得可以声明合法的自动代理目标而不需要使用`ProxyFactoryBean`。
+
+
+
+有两种方式可以达到这个目的：
+
+* 通过使用自动代理创建器，在当前上下文中引用指定的bean。
+
+* 自动代理创建的一种特殊情况是，值得单独思考：由源码级元数据属性驱动的自动代理创建。
+
+### 6.8.1. 自动代理bean定义
+
+这部分涵盖了通过`org.springframework.aop.framework.autoproxy`包提供的自动代理创建器。
+
+
+
+**`BeanNameAutoProxyCreator`**
+
+`BeanNameAutoProxyCretor`类是一个`BeanPostProcessor`，它自动为名称、文字值或通配符匹配的bean创建AOP代理。下面的例子展示了如何创建一个`BeanNameAutoProxyCreator`bean：
+
+```xml
+<bean class="org.springframework.aop.framework.autoproxy.BeanNameAutoProxyCreator">
+    <property name="beanNames" value="jdk*,onlyJdk"/>
+    <property name="interceptorNames">
+        <list>
+            <value>myInterceptor</value>
+        </list>
+    </property>
+</bean>
+```
+
+与`ProxyFactoryBean`一样，有一个`interceptorNames`属性而不是拦截器列表，以允许原型advisor具有正确的行为。名称`interceprots`可以是任何advisors或通知类型。
+
+
+
+通常，与自动代理一样，使用`BeanNameAutoProxyCreator`的要点是将相同配置一致地用于多个对象，并且使用最小的配置量。将声明式事务应用于多个对象是一种流行的选择。
+
+
+
+在前面例子中的那些匹配名称的bean定义，例如`jdkMyBean`和`onlyJdk`，和目标类一样是普通的bean定义。AOP代理会通过`BeanNameAutoProxyCreator`自动创建。相同的通知会应用于所有匹配的beans。注意，如果使用了advisors（而不是前面例子中的interceprot），切点可以应用于不同地应用于不同的bean。
+
+
+
+**`DefaultAdvisorAutoProxyCreator`**
+
+一个更通用和极其强大的自动代理创建器是`DefaultAdvisorAutoProxyCreator`。在当前上下文中，它自动应用于合法的advisors，不需要在advisor的bean定义中指定包含bean的名称。它与`BeanNameAutoProxyCreator`一样，具有一直的配置和避免重复的优点。
+
+
+
+使用此机制涉及：
+
+* 指定`DefaultAdvisorAutoProxyCreator`bean 定义。
+
+* 在相同或相关的上下文中，指定任意数量的advisors。注意，这些必须是advisors，不能是interceptors或其他通知。这是必须的，因为必须有一个评估的切点，才能检查是否符合候选bean定义。
+
+`DefaultAdvisorAutoProxyCreator`自动评估包含在每个advisor中的切点，来查看通知是否应该应用于每个业务对象（例如`businessObject1`和`businessObject2`）。
+
+
+
+这意味着任意数量的advisors可以被自动地应用于每个业务对象。如果在任何advisors中没有切点与业务对象中的任何方法匹配，则该对象不会被代理。当为新的业务对象添加bean定义时，如有必要，他们会被自动代理。
+
+
+
+通常，自动代理的有点是使调用者或依赖着无法获得不通知的对象。在`ApplicationContext`上调用`getBean(businessObject1)`会返回一个代理，而不是目标业务对象（前面显示到“inner bean”也提供了这一好处）。
+
+
+
+下面的例子创建了一个`DefaultAdvisorAutoProxyCreator`bean，并且其他元素将在本节中讨论：
+
+```xml
+<bean class="org.springframework.aop.framework.autoproxy.DefaultAdvisorAutoProxyCreator"/>
+
+<bean class="org.springframework.transaction.interceptor.TransactionAttributeSourceAdvisor">
+    <property name="transactionInterceptor" ref="transactionInterceptor"/>
+</bean>
+
+<bean id="customAdvisor" class="com.mycompany.MyAdvisor"/>
+
+<bean id="businessObject1" class="com.mycompany.BusinessObject1">
+    <!-- Properties omitted -->
+</bean>
+
+<bean id="businessObject2" class="com.mycompany.BusinessObject2"/>
+```
+
+如果想要将相同的通知应用于许多业务对象，则`DefaultAdvisorAutoProxyCreator`非常有用。一旦基础结构定义到位后，可以添加新的业务对象，而无需包括特定的代理配置。也可以轻松的添加其他切面（例如，跟踪或性能监视切面），而对配置的更改更少。
+
+
+
+`DefaultAdvisorAutoProxyCreator`提供过滤支持（通过使用名字约定，以便只有某些advisors被评估，从而允许在同一个工厂中使用多个配置不同的AdvisorAutoProxyCreators）和排序。Advisors可以实现`org.springframework.core.Ordered`接口来确保正确的顺序。之前例子中使用的`TransactionAttributeSourceAdvisor`可以配置顺序。默认设置为无序。
 
 
