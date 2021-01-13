@@ -915,3 +915,137 @@ Spring也允许使用"auto-proxy"bean定义，它能自动代理选择的bean定
 `DefaultAdvisorAutoProxyCreator`提供过滤支持（通过使用名字约定，以便只有某些advisors被评估，从而允许在同一个工厂中使用多个配置不同的AdvisorAutoProxyCreators）和排序。Advisors可以实现`org.springframework.core.Ordered`接口来确保正确的顺序。之前例子中使用的`TransactionAttributeSourceAdvisor`可以配置顺序。默认设置为无序。
 
 
+
+## 6.9. 使用`TargetSource`实现
+
+Spring提供`TargetSource`的概念，以`org.springframework.aop.TargetSource`接口表示。这个接口负责返回实现连接点的目标对象。每当AOP代理处理方法调用时，都会想`TargetSource`实现请求目标实例。
+
+
+
+使用Spring AOP的开发人员通常不需要直接与`TargetSource`实现一起工作，但这提供了支持池化，可插拔和其他复杂目标的强大方法。例如，通过一个池来管理实例，`TargetSrouce`可以为每次调用返回不同的目标实例。
+
+
+
+如果不指定`TargetSource`，默认实现用于包装本地对象。每次都返回相同的目标（与期望的一样）。
+
+
+
+本节的其余部分描述了Spring随附的标准目标源以及如何使用他们。
+
+
+
+> 当使用自定义的目标源时，目标通常需要是一个原型而不是单例bean定义。这允许Spring当需要时创建一个新的目标实例。
+
+
+
+### 6.9.1. 热插拔目标源
+
+`org.springframework.aop.target.HotSwappableTargetSource`的存在是为了允许AOP代理的目标切换，同时允许调用者保留对其的引用。
+
+
+
+更改目标来源的目标会立即生效。`HotSwappableTargetSource`是线程安全的。
+
+
+
+可以通过HotSwappableTargetSrouce上的`swap()`方法来改变目标：
+
+```java
+HotSwappableTargetSource swapper = (HotSwappableTargetSource) beanFactory.getBean("swapper");
+Object oldTarget = swapper.swap(newTarget);
+```
+
+下面的例子展示了需要的XML定义：
+
+```xml
+<bean id="initialTarget" class="mycompany.OldTarget"/>
+
+<bean id="swapper" class="org.springframework.aop.target.HotSwappableTargetSource">
+    <constructor-arg ref="initialTarget"/>
+</bean>
+
+<bean id="swappable" class="org.springframework.aop.framework.ProxyFactoryBean">
+    <property name="targetSource" ref="swapper"/>
+</bean>
+```
+
+前面的`swap()`调用更改了可交换的bean的目标。拥有该bean的引用的客户端不知道更改，但立即开始达到新目标。
+
+
+
+尽管这个例子没有添加任何通知（不必添加通知来使用`TargetSource`），但可以将任何`TargetSource`与通知结合使用。
+
+
+
+**池化的目标源**
+
+使用池目标源提供了与无状态会话EJB相似的编程模型，在无状态会话EJB中，维护了相同实例的池，方法调用将释放池中的对象。
+
+
+
+Spring池与SLSB池的关键区别在于，Spring池可应用于任何POJO。通常，与Spring一样，可以以非入侵的方式应用此服务。
+
+
+
+Spring提供对Commons Pool 2.2的支持，该池提供了相当有效的池的实现。需要将`commons-pool`Jar放入应用程序的classpath中以便使用这个功能。也可以子类化`org.springframework.aop.target.AbstractPoolingTargetSource`来支持任何的其他池API。
+
+> 还支持Commons Pool 1.5+，但从Spring Framework4.2开始不推荐使用。
+
+
+
+下面的例子展示了示例配置：
+
+```xml
+<bean id="businessObjectTarget" class="com.mycompany.MyBusinessObject"
+        scope="prototype">
+    ... properties omitted
+</bean>
+
+<bean id="poolTargetSource" class="org.springframework.aop.target.CommonsPool2TargetSource">
+    <property name="targetBeanName" value="businessObjectTarget"/>
+    <property name="maxSize" value="25"/>
+</bean>
+
+<bean id="businessObject" class="org.springframework.aop.framework.ProxyFactoryBean">
+    <property name="targetSource" ref="poolTargetSource"/>
+    <property name="interceptorNames" value="myInterceptor"/>
+</bean>
+```
+
+
+
+注意，目标对象（前面例子中的`businessObjectTarget`）必须是一个原型。这让`PoolingTargetSource`的实现可以创建一个目标的新实例，以根据需要扩展池。参考`AbtractPoolingTargetSrouce`和具体子类来获取更多相关信息。`maxSize`是最基本的，并且始终保证存在。
+
+
+
+在这个例子中，`myInterceptor`是拦截器的名称，它需要定义在相同的IoC上下文中。但是，不需要指定拦截器使用池。如果仅希望池化而没有其他通知，则根本不需要设置`interceprotNames`属性。
+
+
+
+可以将Spring配置为能够将任何池化对象转换为`org.springframework.aop.target.PoolingConfig`接口，该接口通过介绍来公开有关池的配置和当前大小的信息。需要定义一个类似于以下内容的advisor：
+
+```xml
+<bean id="poolConfigAdvisor" class="org.springframework.beans.factory.config.MethodInvokingFactoryBean">
+    <property name="targetObject" ref="poolTargetSource"/>
+    <property name="targetMethod" value="getPoolingConfigMixin"/>
+</bean>
+```
+
+通过在`AbstractPoolingTargetSource`类上调用方便的方法来获得此advisor，因此可以使用`MethodInvokingFactoryBean`。这个advisor的名字必须在公开池对象的`ProxyFactoryBean`中的拦截器名称列表中。
+
+
+
+转换定义如下：
+
+```java
+PoolingConfig conf = (PoolingConfig) beanFactory.getBean("businessObject");
+System.out.println("Max pool size is " + conf.getMaxSize());
+```
+
+> 通常不需要合并无状态服务的对象。不认为它应该是默认选择，因为大多数无状态对象自然是线程安全的，并且如果缓存了资源，实例池会成问题。
+
+
+
+通过使用自动代理，可以实现更简单的池化，可以设置任何自动代理创建者使用的`TargetSource`实现。
+
+
