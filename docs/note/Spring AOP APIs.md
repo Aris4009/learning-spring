@@ -1049,3 +1049,49 @@ System.out.println("Max pool size is " + conf.getMaxSize());
 通过使用自动代理，可以实现更简单的池化，可以设置任何自动代理创建者使用的`TargetSource`实现。
 
 
+
+### 6.9.3. 原型目标源
+
+设置原型目标源与设置池化目标源类似。在这种情况下，每次调用方法都会创建一个新的目标实例。尽管在当前JVM中创建一个新的对象成本不是很高，但是连接新对象（满足其IoC依赖性）的成本可能更高。因此，没有充分理由不应该使用此方法。
+
+
+
+为此，可以修改前面显示的`poolTargetSource`定义，如下所示（为了清除起见，也更改了名称）：
+
+```xml
+<bean id="prototypeTargetSource" class="org.springframework.aop.target.PrototypeTargetSource">
+    <property name="targetBeanName" ref="businessObjectTarget"/>
+</bean>
+```
+
+唯一的属性是目标bean的名称。在`TargetSource`实现中使用继承来确保命名一致。与池化目标源一样，目标bean必须是原型bean定义。
+
+
+
+### 6.9.4. `ThreadLocal`目标源
+
+如果需要每次进入请求时创建对象（也就是每个线程），`ThreadLocal`目标源非常有用。`ThreadLocal`的概念提供了JDK范围的功能，可以透明的将资源与线程一起存储。设置`ThreadLocalTargetSource`几乎与其他类型的目标源所说明的相同：
+
+```xml
+<bean id="threadlocalTargetSource" class="org.springframework.aop.target.ThreadLocalTargetSource">
+    <property name="targetBeanName" value="businessObjectTarget"/>
+</bean>
+```
+
+> 在多线程和多类加载器环境中错误使用`ThreadLocal`实例时，会遇到严重问题（可能导致内存泄露）。应该使用考虑在其他一些类中包装threadlocal，并且绝对不要直接使用`ThreadLocal`本身（包装类中除外）。另外，应该始终记住正确设置和取消设置线程本地资源（在后者仅涉及对`ThreadLocal.set(null)`的调用）。在任何情况下都应该进行取消设置，因为不取消设置可能会导致问题出现。Spring的`ThreadLocal`支持做到这一点，并且应该始终考虑使用`ThreadLocal`实例，而无需其他适当的处理代码。
+
+
+
+## 6.10. 定义一个新的通知类型
+
+Spring AOP是可扩展的。虽然目前在内部使用拦截器实现策略，但是除了在around,before,throws和after之后进行拦截之外，还可以支持任意通知类型。
+
+
+
+`org.springframework.aop.framework.adapter`包是一个SPI包，以便支持新的自定义通知类型而不需要改变核心框架。唯一的限制是自定义的`Advice`类型必须实现`org.aopalliance.aop.Advice`标记接口。
+
+
+
+参考`org.springframework.aop.framework.adapter`来获取更多信息。
+
+
