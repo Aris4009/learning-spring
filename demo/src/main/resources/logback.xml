@@ -14,4 +14,14 @@
         <appender-ref ref="Console"/>
     </root>
     <logger name="ch.qos.logback" level="OFF" additivity="false"/>
+
+    <!--    <logger name="org.springframework.aop.interceptor.PerformanceMonitorInterceptor" additivity="false">-->
+    <!--        <level value="TRACE"/>-->
+    <!--        <appender-ref ref="Console"/>-->
+    <!--    </logger>-->
+
+    <!--    <logger name="org.springframework.aop.interceptor.DebugInterceptor" additivity="false">-->
+    <!--        <level value="TRACE"/>-->
+    <!--        <appender-ref ref="Console"/>-->
+    <!--    </logger>-->
 </configuration>
