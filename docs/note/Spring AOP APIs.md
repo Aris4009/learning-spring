@@ -646,7 +646,108 @@ CGLIB代理和动态代理几乎性能差别。在这种情况下，性能不应
 通过在拦截器名称后添加星号，所有具有与该星号之前的部分匹配的bean名称的advisors都将添加到advisor链中。如果需要添加全局的advisors，这可能会派上用场。下面的例子定义了两个全局的advisors：
 
 ```xml
+<bean id="proxy" class="org.springframework.aop.framework.ProxyFactoryBean">
+    <property name="target" ref="service"/>
+    <property name="interceptorNames">
+        <list>
+            <value>global*</value>
+        </list>
+    </property>
+</bean>
 
+<bean id="global_debug" class="org.springframework.aop.interceptor.DebugInterceptor"/>
+<bean id="global_performance" class="org.springframework.aop.interceptor.PerformanceMonitorInterceptor"/>
 ```
+
+
+
+## 6.5. 简洁的代理定义
+
+特别是在定义事务代理时，可能会遇到许多相似的代理定义。使用父子bean定义和子bean定义，以及内部bean定义可以使代理更加简洁明了。
+
+
+
+首先，为代理创建父模板，bean定义如下：
+
+```xml
+<bean id="txProxyTemplate" abstract="true"
+        class="org.springframework.transaction.interceptor.TransactionProxyFactoryBean">
+    <property name="transactionManager" ref="transactionManager"/>
+    <property name="transactionAttributes">
+        <props>
+            <prop key="*">PROPAGATION_REQUIRED</prop>
+        </props>
+    </property>
+</bean>
+```
+
+它本身不会实例化，因此实际上可能是不完整的。然后，每个需要创建的代理是一个子bean定义，它将代理的目标包装为一个内部bean定义，因为无论如何该目标都不会单独使用。下面的例子展示了这样的子bean：
+
+```xml
+<bean id="myService" parent="txProxyTemplate">
+    <property name="target">
+        <bean class="org.springframework.samples.MyServiceImpl">
+        </bean>
+    </property>
+</bean>
+```
+
+
+
+可以覆盖来自父模板中的属性。下面的例子，覆盖了事务的传播设置：
+
+```xml
+<bean id="mySpecialService" parent="txProxyTemplate">
+    <property name="target">
+        <bean class="org.springframework.samples.MySpecialServiceImpl">
+        </bean>
+    </property>
+    <property name="transactionAttributes">
+        <props>
+            <prop key="get*">PROPAGATION_REQUIRED,readOnly</prop>
+            <prop key="find*">PROPAGATION_REQUIRED,readOnly</prop>
+            <prop key="load*">PROPAGATION_REQUIRED,readOnly</prop>
+            <prop key="store*">PROPAGATION_REQUIRED</prop>
+        </props>
+    </property>
+</bean>
+```
+
+注意父bean的例子，通过将`abstract`属性设置为`true`来将父bean定义显示标记为抽象的，如前所述，因此可能永远不会实例化它。应用程序上下文（但不是简单的bean工厂）默认情况下会预先实例化所有单例。因此，它非常重要（至少对单例bean而言），如果有一个（父）bean定义，打算仅用作模板，并且此定义指定了一个类，则必须确保将`abstract`属性设置为`true`。否则，应用程序上下文实际上会对其进行实例化。
+
+
+
+## 6.6. 使用`ProxyFactory`通过编程的方式创建AOP代理
+
+在Spring中，通过编程方式创建AOP代理非常简单。可以不依赖于Spring IoC来使用Spring AOP。
+
+
+
+由目标对象实现的接口将被自动代理。下面列出了创建目标对象的代理，包含一个interceptor和一个advisor：
+
+```java
+ProxyFactory factory = new ProxyFactory(myBusinessInterfaceImpl);
+factory.addAdvice(myMethodInterceptor);
+factory.addAdvisor(myAdvisor);
+MyBusinessInterface tb = (MyBusinessInterface) factory.getProxy();
+```
+
+第一步，构造一个`org.springframework.aop.framework.ProxyFactory`类型的对象。可以使用目标对象创建它，像前面的例子，或指定需要代理的接口。
+
+
+
+可以添加通知（用拦截器作为一种特殊的通知），advisors，或两者，并在`ProxyFactory`的声明周期内对其进行操作。如果增加一个`IntroductionInterceptionAroundAdvisor`，可以使代理实现其他接口。
+
+
+
+`ProxyFactory`上也有方便的方法（继承自`AdvisedSupport`），可以添加其他通知类型，例如before和throws通知。`AdvisedSupport`是`ProxyFactory`和`ProxyFactoryBean`两者的超类。
+
+> 在多数应用程序中，将AOP代理创建与IoC框架集成在一起是最佳实践。建议使用AOP从Java代码外部化配置。
+
+
+
+
+
+
 
 
