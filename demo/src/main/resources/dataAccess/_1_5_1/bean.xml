@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+        https://www.springframework.org/schema/beans/spring-beans.xsd">
+
+
+    <!-- don't forget the DataSource -->
+    <bean id="dataSource" class="org.apache.commons.dbcp2.BasicDataSource" destroy-method="close">
+        <property name="username" value="root"/>
+        <property name="password" value=""/>
+        <property name="url" value="jdbc:mysql://localhost:3306/test?useSSL=false"/>
+        <property name="driverClassName" value="com.mysql.jdbc.Driver"/>
+    </bean>
+
+    <!-- similarly, don't forget the TransactionManager -->
+    <bean id="txManager" class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
+        <property name="dataSource" ref="dataSource"/>
+    </bean>
+
+    <bean id="jdbcTemplate" class="org.springframework.jdbc.core.JdbcTemplate">
+        <constructor-arg name="dataSource" ref="dataSource"/>
+    </bean>
+
+    <bean id="transactionTemplate" class="org.springframework.transaction.support.TransactionTemplate">
+        <constructor-arg name="transactionManager" ref="txManager"/>
+    </bean>
+
+    <bean id="service" class="data.access._1_5_1.ServiceImpl">
+        <constructor-arg name="jdbcTemplate" ref="jdbcTemplate"/>
+        <constructor-arg name="transactionTemplate" ref="transactionTemplate"/>
+    </bean>
+</beans>
