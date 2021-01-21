@@ -13,16 +13,18 @@ import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
-import org.springframework.transaction.TransactionManager;
+import org.springframework.transaction.annotation.EnableTransactionManagement;
+import org.springframework.transaction.support.TransactionTemplate;
 
 @Configuration
 @ComponentScan
+@EnableTransactionManagement
 public class App {
 
-	private static Logger log = LoggerFactory.getLogger(App.class);
+	private static final Logger log = LoggerFactory.getLogger(App.class);
 
 	@Bean
-	public static DataSource dataSource() {
+	public DataSource dataSource() {
 		BasicDataSource dataSource = new BasicDataSource();
 		dataSource.setDriverClassName("com.mysql.jdbc.Driver");
 		dataSource.setUrl("jdbc:mysql://localhost:3306/test?useSSL=false");
@@ -31,24 +33,31 @@ public class App {
 	}
 
 	@Bean
-	public static JdbcTemplate jdbcTemplate() {
+	public JdbcTemplate jdbcTemplate() {
 		return new JdbcTemplate(dataSource());
 	}
 
-	@Bean("txManager")
-	public static TransactionManager transactionManager() {
+	@Bean("tm")
+	public DataSourceTransactionManager transactionManager() {
 		return new DataSourceTransactionManager(dataSource());
 	}
 
-	public static void main(String[] args) {
+	@Bean
+	public TransactionTemplate transactionTemplate() {
+		return new TransactionTemplate(transactionManager());
+	}
+
+	public static void main(String[] args) throws Exception {
 		AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext();
 		context.register(App.class);
 		context.refresh();
 
-		CreateUserPublisher createUserPublisher = context.getBean(CreateUserPublisher.class);
+		Service service = context.getBean(Service.class);
 		int code = new Random().nextInt(Integer.MAX_VALUE);
 		User user = new User("我是" + String.valueOf(code));
 		log.info("{}", user);
-		createUserPublisher.publish(user);
+		service.user(user);
+		log.info("================");
+		service.userRollback(user);
 	}
 }

@@ -1,22 +1,28 @@
 package data.access._1_7;
 
-import org.springframework.jdbc.core.JdbcTemplate;
+import data.access._1_5_1.Test;
 
 public class CreateUserEvent {
 
-	private final JdbcTemplate jdbcTemplate;
-
 	private final User user;
 
-	public CreateUserEvent(JdbcTemplate jdbcTemplate, User user) {
-		this.jdbcTemplate = jdbcTemplate;
+	private final Test test;
+
+	public CreateUserEvent(User user, Test test) {
 		this.user = user;
+		this.test = test;
 	}
 
-	public CreateUserEvent insert() {
-		StringBuilder builder = new StringBuilder();
-		builder.append("insert into user(name) values(?)");
-		jdbcTemplate.update(builder.toString(), new Object[] { user.getName() });
-		return this;
+	public User getUser() {
+		return user;
+	}
+
+	public Test getTest() {
+		return test;
+	}
+
+	@Override
+	public String toString() {
+		return "CreateUserEvent{" + "user=" + user + ", test=" + test + '}';
 	}
 }
