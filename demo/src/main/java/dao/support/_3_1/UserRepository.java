@@ -1,6 +1,7 @@
 package dao.support._3_1;
 
 import java.util.List;
+import java.util.Random;
 
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
@@ -51,6 +52,7 @@ public class UserRepository {
 	}
 
 	public void createTable() {
-		jdbcTemplate.execute("create table user1(id integer, name varchar(100))");
+		jdbcTemplate.execute(
+				"create table user_" + new Random().nextInt(Integer.MAX_VALUE) + "(id integer, name varchar(100))");
 	}
 }

@@ -13,6 +13,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.jdbc.core.simple.SimpleJdbcCall;
 import org.springframework.jdbc.core.simple.SimpleJdbcInsert;
+import org.springframework.jdbc.core.support.JdbcDaoSupport;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -60,12 +61,27 @@ public class App {
 		return new NamedParameterJdbcTemplate(jdbcTemplate());
 	}
 
+	@Bean
+	public JdbcDaoSupport jdbcDaoSupport() {
+		JdbcDaoSupport jdbcDaoSupport = new JdbcDaoSupport() {
+		};
+		jdbcDaoSupport.setJdbcTemplate(jdbcTemplate());
+		return jdbcDaoSupport;
+	}
+
 	public static void main(String[] args) {
 		AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext();
 		context.register(App.class);
 		context.refresh();
-		UserService userService = context.getBean(UserService.class);
-		userService.execute(new User(70));
+//		UserService userService = context.getBean(UserService.class);
+//		userService.execute(new User(70));
+
+//		JdbcTemplate jdbcTemplate = context.getBean(JdbcTemplate.class);
+//		JdbcDaoSupport jdbcDaoSupport = context.getBean(JdbcDaoSupport.class);
+//		log.info("{}", jdbcTemplate == jdbcDaoSupport.getJdbcTemplate());
+
+		NamedUserRepository namedUserRepository = context.getBean(NamedUserRepository.class);
+		log.info("{}", namedUserRepository.countByUserName(new User("haha")));
 		context.close();
 	}
 }
