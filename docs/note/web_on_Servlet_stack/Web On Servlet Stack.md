@@ -697,7 +697,73 @@ public class MyInitializer
 
 
 
+## 1.2. 过滤器
 
+`spring-web`模块提供了一些有用的过滤器：
+
+* Form Data
+
+* Forwarded Headers
+
+* Shallow ETag
+
+* CORS
+
+
+
+### 1.2.1. Form Data
+
+浏览器仅可以通过HTTP GET或HTTP POST提交表单数据，但是非浏览器客户端也可以使用HTTP PUT，PATCH，和DELETE。Servlet API要求`ServletRequest.getParameter*()`方法来支持仅对于HTTP POST的表单字段访问。
+
+
+
+模块`spring-web`提供`FormContentFilter`用来拦截内容类型为`application/x-www-form-urlencoded`的HTTP PUT，PATCH，和DELETE请求，从请求体中读取表单数据，包装`ServletRequest`以使表单数据可以通过`ServletRequest.getParameter*()`系列方法使用。
+
+
+
+### 1.2.2. Forwarded Headers
+
+当请求通过代理进入（例如负载均衡），host，port和scheme可能发生改变，并且，从客户端视角，创建连接并指向正确的host，port和scheme变成了挑战。
+
+
+
+`RFC 7239`定义了`Forwarded` HTTP Header，代理可以使用它来提供关于原始请求的信息。这也有其他非标准的header,包括`X-Forwarded-Host`，`X-Forwarded-Port`，`X-Forwarded-Proto`，`X-Forwarded-Ssl`和`X-Forwarded-Prefix`。
+
+
+
+`ForwardedHeaderFilter`是一个Servlet过滤器，可以修改请求以便：a)改变基于`Forwarded`头的host,port和scheme；b)删除这些头以消除进一步的影响。该过滤器依赖于包装请求，因此必须先于其他过滤器（例如`RequestContextFilter`）进行排序，该过滤器应该与修改后的请求一起使用而不是原始请求。
+
+
+
+对于转发头，这里有安全性的考虑，因为应用程序不知道请求头是通过代理添加的，还是有恶意客户端添加的。这就是为什么应该将位于信任边界的代理配置为删除来自外部的不受信任的转发头。还可以使用`removeOnluy=true`配置`ForwardedHeaderFilter`，在这种个情况下，它将删除但不适用头。
+
+
+
+为了支持异步请求和错误调度，该过滤器应该和`DispatcherType.ASYNC`和`DispatcherType.ERROR`映射。如果使用Spring框架的`AbstractAnnotationCOnfigDispatcherServletInitializer`，所有过滤器自动为所有调度类型自动注册。但是，如果通过`web.xml`或在Spring Boot，通过`FilterRegistrationBean`注册，请确保包含DispatcherType.ASYNC和DispatcherType.ERROR，除了DispatcherType.REQUEST以外。
+
+
+
+### 1.2.3. Shallow ETag
+
+`ShallowEtagHeaderFilter`过滤器通过缓存写入响应的内容，并计算出MD5哈希值来创建`shallow` ETag。客户端下一次发送时，它会执行相同的操作，但是还会将计算值与If-None-Match请求标头进行比较，如果两者相等，则返回304（NOT_MODIFIED）。
+
+
+
+这种策略可以节省网络带宽，但不能节省CPU，因为必须为每个请求计算完整响应。如前所述，控制器级别的其他策略可以避免计算。请参阅HTTP缓存。
+
+
+
+该过滤器具有`writeWeakETag`参数，该参数将过滤器配置为写入弱ETag，类似于以下内容：W /“ 02a2d595e6ed9a0b24f027f2b63b134d6”（在RFC 7232第2.3节中定义）。
+
+
+
+为了支持异步请求，此过滤器必须与DispatcherType.ASYNC映射，以便过滤器可以延迟并成功生成ETag到最后一个异步调度的结尾。如果使用Spring Framework的AbstractAnnotationConfigDispatcherServletInitializer（请参阅Servlet配置），则会为所有调度类型自动注册所有过滤器，但是，如果通过web.xml或在Spring Boot中通过FilterRegistrationBean注册过滤器，请确保包括DispatcherType.ASYNC。
+
+
+
+### 1.2.4. 跨域
+
+Spring MVC通过控制器上的注解为CORS配置提供了细粒度的支持。但是，当与Spring Security一起使用时，我们建议您依赖内置的`CorsFilter`，该`CorsFilter`顺序必须在Spring Security的过滤器链之前。
 
 
 
