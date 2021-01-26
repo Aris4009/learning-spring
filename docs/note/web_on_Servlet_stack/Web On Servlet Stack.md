@@ -327,7 +327,7 @@ Spring `DispatcherServlet`也支持Servlet API所指定的`last-modification-dat
 | Parameter                      | Explanation                                                                                                                                                                                                                                                                                        |
 | ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | contextClass                   | 实现了`ConfigurableWebApplicationContext`的类，通过Servlet实例化和本地配置。默认情况下，使用`XmlWebApplicationContext`。                                                                                                                                                                                                     |
-| contextConfigLocation          | 传递给上下文实例（通过`contextClass`指定的类的实例）的字符串，用来表名上下文可以在哪被发现。这个字符串包含了多个潜在的字符串（使用逗号分割），用来支持多个上下文。在包含bean的多个上下文中如果定义了两次，最后一个位置优先。                                                                                                                                                                            |
+| contextConfigLocation          | 传递给上下文实例（通过`contextClass`指定的类的实例）的字符串，用来表明上下文可以在哪被发现。这个字符串包含了多个潜在的字符串（使用逗号分割），用来支持多个上下文。在包含bean的多个上下文中如果定义了两次，最后一个位置优先。                                                                                                                                                                            |
 | namespace                      | `WebApplicationContext`命名空间。默认是`[servlet-name]-servlet`                                                                                                                                                                                                                                            |
 | throwExceptionIfNoHandlerFound | 当没有为请求找到处理器是，是否抛出一个`NoHandlerFoundException`。异常可以通过`HandlerExceptionResolver`捕获（例如，通过使用一个带有`@ExceptionHanlder`的控制器方法）并且并将其作为其他任何异常进行处理。<br/><br/>默认情况下，这个配置被设置为`false`，在这种情况下，`DispatcherServlet`将响应状态设置为404(NOT_FOUND)，而不会引发异常。<br/><br/>注意，如果默认servlet处理器已经配置，未解析的请求总是转发到默认的servlet上并且永远不会触发404。 |
 
@@ -739,7 +739,7 @@ public class MyInitializer
 
 
 
-为了支持异步请求和错误调度，该过滤器应该和`DispatcherType.ASYNC`和`DispatcherType.ERROR`映射。如果使用Spring框架的`AbstractAnnotationCOnfigDispatcherServletInitializer`，所有过滤器自动为所有调度类型自动注册。但是，如果通过`web.xml`或在Spring Boot，通过`FilterRegistrationBean`注册，请确保包含DispatcherType.ASYNC和DispatcherType.ERROR，除了DispatcherType.REQUEST以外。
+为了支持异步请求和错误调度，该过滤器应该和`DispatcherType.ASYNC`和`DispatcherType.ERROR`映射。如果使用Spring框架的`AbstractAnnotationConfigDispatcherServletInitializer`，所有过滤器自动为所有调度类型自动注册。但是，如果通过`web.xml`或在Spring Boot，通过`FilterRegistrationBean`注册，请确保包含DispatcherType.ASYNC和DispatcherType.ERROR，除了DispatcherType.REQUEST以外。
 
 
 
@@ -766,6 +766,258 @@ public class MyInitializer
 Spring MVC通过控制器上的注解为CORS配置提供了细粒度的支持。但是，当与Spring Security一起使用时，我们建议您依赖内置的`CorsFilter`，该`CorsFilter`顺序必须在Spring Security的过滤器链之前。
 
 
+
+## 1.3. 注解的Controllers
+
+Spring MVC提供一个基于注解的编程模型，`@Controller`和`@RestController`组件使用注解来表示请求映射，请求输入，异常处理等等。注解的控制器有弹性的方法签名并且不需要扩展基类或实现任何特定接口。下面的例子展示了通过注解定义的一个控制器：
+
+```java
+@Controller
+public class HelloController {
+
+    @GetMapping("/hello")
+    public String handle(Model model) {
+        model.addAttribute("message", "Hello World!");
+        return "index";
+    }
+}
+```
+
+在前面的例子中，方法接收一个`Model`并以字符串形式返回视图，但是存在其他选项，本章稍后对其进行说明。
+
+
+
+### 1.3.1. 声明
+
+可以在Servlet的`WebApplicationContext`中通过使用标准Spring bean定义来定义controller beans。样板`@Controller`允许自动检测，与Spring对在classpath中检测`@Component`类并为其自动注册bean定义的常规支持保持一致。它还充当了带注解类的样板，表明其作为Web组件的作用。
+
+
+
+为了对注入`@Controller` beans开启自动检测，可以在Java配置中添加组件扫描，像下面的例子一样：
+
+```java
+@Configuration
+@ComponentScan("org.example.web")
+public class WebConfig {
+
+    // ...
+}
+```
+
+下面的例子是XML配置，与上面的例子等效：
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns:p="http://www.springframework.org/schema/p"
+    xmlns:context="http://www.springframework.org/schema/context"
+    xsi:schemaLocation="
+        http://www.springframework.org/schema/beans
+        https://www.springframework.org/schema/beans/spring-beans.xsd
+        http://www.springframework.org/schema/context
+        https://www.springframework.org/schema/context/spring-context.xsd">
+
+    <context:component-scan base-package="org.example.web"/>
+
+    <!-- ... -->
+
+</beans>
+```
+
+`@RestController`是一个组合注解，它本身是带有`@Controller`和`@ResponseBoyd`的元注解，用来表示每个方法继承顶级`@ResponseBody`注解，因此，直接将其写入响应体，而不是视图解析和使用HTML模板进行渲染。
+
+
+
+**AOP Proxies**
+
+在有些情况下，可能需要通过运行时AOP代理装饰一个controller。一个例子是如果选择将`@Transactional`注解直接用在controller上。当在这种情况下时，专门针对controller，建议使用基于类的代理。这通常对controller来说是默认选择。但是，如果controller必须实现的接口不是Spring上下文回调的接口（例如`InitializingBean`，`*Aware`，和其他），可能需要明确配置基于类的代理。例如，对于`<tx:annotation-driven/>`，需改改变为`<tx:annotation-driven proxy-target-class="true"/>`，并且对于`@EnableTransactionManagement`,需要变为`@EnableTransactionManagement(proxyTargetClass = true)`。
+
+
+
+### 1.3.2. Request Mapping
+
+可以使用`@RequestMapping`注解来将请求映射到controllers方法。可以通过多种属性来匹配-URL，HTTP方法，请求参数，headers和media types。可以在类级别上使用它来表示共享的映射或在方法级别来缩小到指定的端点映射。
+
+
+
+这里有一些`@RequestMapping`的特殊缩写：
+
+* `@GetMapping`
+
+* `@PostMapping`
+
+* `@PutMapping`
+
+* `@DeleteMapping`
+
+* `@PatchMapping`
+
+
+
+这些缩写被当做自定义注解来提供，因为可以说，大多数控制器方法应该映射到特定的HTTP方法，而不是使用`@RequestMapping`，后者默认情况下与所有HTTP方法匹配。同时，在类级别仍需要`@RequestMapping`来表示共享映射。
+
+
+
+下面的例子有类型和方法级别的映射：
+
+```java
+@RestController
+@RequestMapping("/persons")
+class PersonController {
+
+    @GetMapping("/{id}")
+    public Person getPerson(@PathVariable Long id) {
+        // ...
+    }
+
+    @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
+    public void add(@RequestBody Person person) {
+        // ...
+    }
+}
+```
+
+
+
+**URI模式**
+
+`@RequestMapping`方法可以使用URI模式来映射。有两种选择：
+
+* `PathPattern`-根据URI路径的预解析模式，该路径也预解析`PathContainer`。该解决方案转为web使用设计，可以有效处理编码和参数路径，并有效匹配。
+
+* `AntPathMatcher`-根据字符串路径匹配字符串模式。这是一种原始的解决方案，这在Spring配置中还用于在类路径，文件系统和其他位置上选择资源。它效率较低，并且字符串路径输入对于有效处理URI的编码和其他问题是一个挑战。
+
+
+
+对于web应用程序，`PathPattern`是建议的解决方案并且在Spring WebFlux中它是唯一选择。在5.3版本之前，`AntPathMatcher`在Spring MVC中是唯一的选择并且仍然是默认选择。但是，在`MVC config`中可以开启`PathPattern`。
+
+
+
+`PathPattern`像`AntPathMatcher`一样支持模式语法。此外，它也支持捕获模式，例如：`{*spring}`，可以用于匹配路径末尾的0个或更多路径段。`PathPattern`还限制了使用`**`来匹配更多路径段，以便仅在模式末尾才允许使用。当为指定请求选择最佳匹配模式时，这消除了许多歧义。对于全部的匹配模式语法，请参考[PathPattern](https://docs.spring.io/spring-framework/docs/5.3.3/javadoc-api/org/springframework/web/util/pattern/PathPattern.html) 和 [AntPathMatcher](https://docs.spring.io/spring-framework/docs/5.3.3/javadoc-api/org/springframework/util/AntPathMatcher.html)。
+
+
+
+一些模式样例：
+
+* `"/resources/ima?e.png"`-在路径段匹配一个字符
+
+* `"/resources/*.png"`-在路径段匹配0个或多个字符
+
+* `"/resources/**"`-匹配多个路径段
+
+* `"/projects/{project}/versions"`-匹配一个路径段并将它作为变量捕获
+
+* `"/projects/{project:[a-z]+}/version"`-匹配并捕获带有正则表达式的变量
+
+
+
+可以通过`@PathVariable`来访问捕获到的URI变量，例如：
+
+```java
+@GetMapping("/owners/{ownerId}/pets/{petId}")
+public Pet findPet(@PathVariable Long ownerId, @PathVariable Long petId) {
+    // ...
+}
+```
+
+
+
+可以在类和方法级别上声明URI变量：
+
+```java
+@Controller
+@RequestMapping("/owners/{ownerId}")
+public class OwnerController {
+
+    @GetMapping("/pets/{petId}")
+    public Pet findPet(@PathVariable Long ownerId, @PathVariable Long petId) {
+        // ...
+    }
+}
+```
+
+URI变量会自动转换为合适的类型或引发`TypeMismatchException`。默认支持简单类型简单类型（`int`，`long`，`Date`等等）并且可以注册任何其他数据类型来提供支持。
+
+
+
+可以显示命名URI变量名称（例如，`@PathVariable("customId")`），但是如果名称相同并且代码使用调试信息或使用Java 8上的`-parameters`编译器标志编译的，则可以忽略该详细信息。
+
+
+
+语法`{varName:regex}`声明了一个带有正则表达式的URI变量。例如，指定URL `"spring-web-3.0.5 .jar"`，下面的方法提取了名称，版本和文件扩展：
+
+```java
+@GetMapping("/{name:[a-z-]+}-{version:\\d\\.\\d\\.\\d}{ext:\\.[a-z]+}")
+public void handle(@PathVariable String name, @PathVariable String version, @PathVariable String ext) {
+    // ...
+}
+```
+
+URI路径模式也有内置的`${...}`占位符，根据本地语言环境，系统，环境和其他property源，通过使用`PropertyPlaceHolderConfigurer`来解析占位符。例如，可以使用它来基于某些外部配置参数化一个基础URL。
+
+
+
+**模式对比**
+
+当多种模式匹配了一个URL后，会选择最佳匹配项。根据是否启用了已解析的`PathPattern`，使用以下一种方法来完成此操作：
+
+* [`PathPattern.SPECIFICITY_COMPARATOR`](https://docs.spring.io/spring-framework/docs/5.3.3/javadoc-api/org/springframework/web/util/pattern/PathPattern.html#SPECIFICITY_COMPARATOR)
+
+* [`AntPathMatcher.getPatternComparator(String path)`](https://docs.spring.io/spring-framework/docs/5.3.3/javadoc-api/org/springframework/util/AntPathMatcher.html#getPatternComparator-java.lang.String-)
+
+
+
+两者都有助于对模式进行排序，并在上面放置更具体的模式。如果模式的URI变量（计数为1），单个通配符（计数为1）和双通配符（计数为2）的数量较少，则模式的含义不太明确。给定相等的分数，则选择更长的模式。给定相同分数和长度，URI变量的数量比通配符多的模式会被选择。
+
+
+
+默认映射模式（`/**`）从评分中被排除，并且使用排在最后。同样，前缀模式（例如`/public/**`）被认为比其他没有双通配符的模式更具体。
+
+
+
+**后缀匹配**
+
+从5.3以后，Spring MVC默认情况下不再执行`.*`的后缀模式来匹配映射为`/person`也隐含的映射`/person.*`的controller。因此，路径扩展不再用于解释响应的请求内容类型-例如，`/person.pdf`，`/person.xml`。
+
+
+
+当浏览器用于发送难以一致解释的`Accept`头时，以这种方式使用文件扩展名是必要的。目前，这已经不再是必须的，使用`Accept`头应该是首选。
+
+
+
+随着时间流逝，文件扩展名的使用已经被证明有各种问题。当使用URI变量时，路径参数和URI编码进行覆盖时，可能会引起歧义。关于基于URL的授权和安全性的推理也变得更加困难。
+
+
+
+要完全禁用5.3之前版本中的路径扩展，请设置以下内容：
+
+* `useSuffixPatternMatching(false)`
+
+* `favorPathExtension(false)`
+
+
+
+除了通过`Accept`头之外，还有一种请求内容类型的方法仍然很有用，例如在浏览器中输入URL时。路径扩展的一种安全代替方法是使用查询参数策略。如果必须使用文件扩展，考虑通过`ContentNegotiationConfigurer`的`mediaTypes`来限制为显示注册的扩展列表。
+
+
+
+**后缀匹配和RFD**
+
+反射文件下载（RFD）攻击与XSS攻击相似，因为它依赖于响应中反应的请求输入（例如，查询参数和URI变量）。但是，RFD攻击不是将JavaScript插入到HTML，而是依靠浏览器切换来执行下载，并在以后双击时将响应视为可执行脚本。
+
+
+
+在Spring MVC中，`@RequestBody`和`ResponseEntity`方法是有风险的，因为他们可以绘制为不同的内容类型，因为客户端可以通过URL路径扩展来请求。关闭后缀模式匹配和为内容写上使用路径扩展可以有效降低风险，但是对于组织RFD统计它不满足。
+
+
+
+为了阻止RDF攻击，Spring MVC在呈现响应体之前添加了`Content-Disposition:inline;filename=f.txt`头，以建议提供固定且安全的下载文件。仅当URL路径包含既不被视为安全也不被明确注册以用于内容写上的文件扩展名时，才执行此操作。但是，当直接在浏览器中键入URL时，它可能会产生副作用。
+
+
+
+许多常见路径扩展在默认情况下都被视为安全的。具有自定义`HttpMessageConverter`实现的应用程序可以显示注册文件扩展名以进行内容写上，以避免为这些扩展名添加`Content-Disposition`头。
 
 
 
