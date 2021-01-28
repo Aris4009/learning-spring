@@ -1797,4 +1797,126 @@ Spring MVC中对`@ExceptionHandler`方法的支持建立在`DispatcherServlet`�
 
 ### 1.3.7. Controller Advice
 
+通常，`@ExceptionHandler`,`@InitBinder`和`@ModelAttribute`方法与`@Controller`类一起应用（或该类的继承）。如果想要将这些方法应用于全局（跨控制器），可以将他们声明在带有`@ControllerAdvice`或`@RestControllerAdvice`的类中。
+
+
+
+`@ControllerAdvice`通常带有`@Component`批注，意味着这些类可以通过组件扫描注册为Spring beans。`@RestControllerAdvice`是一个组合注解，它是`@ControllerAdvice`与`@ResponseBody`的组合，本质上意味着`@ExceptionHandler`方法通过消息转换（多种视图解析或模板绘制）来呈现响应体。
+
+
+
+启动时，`@RequestMapping`和`@ExceptionHandler`方法的基础结构类将检测使用`@ControllerAdvice`注解的Spring beans，然后在运行时应用其方法。全局`@ExceptionHandler`方法（从`@ControllerAdvice`）在本地方法（来自`@Controller`）之后应用。相比之下，全局`@ModelAttribute`和`@InitBinder`方法在本地方法之前应用。
+
+
+
+默认情况下，`@ControllerAdvice`方法应用于每个请求（也就是说，所有的控制器），但是可以通过使用注解属性来缩小控制器的范围：
+
+```java
+// Target all Controllers annotated with @RestController
+@ControllerAdvice(annotations = RestController.class)
+public class ExampleAdvice1 {}
+
+// Target all Controllers within specific packages
+@ControllerAdvice("org.example.controllers")
+public class ExampleAdvice2 {}
+
+// Target all Controllers assignable to specific classes
+@ControllerAdvice(assignableTypes = {ControllerInterface.class, AbstractController.class})
+public class ExampleAdvice3 {}
+```
+
+前面示例中的选择器在运行时进行评估，如果广泛使用，可能会对性能产生负面影响。
+
+
+
+## 1.4. 函数式端点（略...）
+
+Spring Web MVC包含WebMvc.fn，一个轻量级的函数式编程模型，这些函数用来路由和处理请求，并且将合约设计为不可变的。它是基于注解的编程模型的替代方案，但可以在同一个`DispatcherServlet`上运行。
+
+
+
+## 1.5. URI 连接（略...）
+
+
+
+## 1.6. 异步请求
+
+Spring MVC扩展集成了Servlet 3.0的异步请求处理：
+
+* 在控制器方法中`DeferredResult`和`Callable`的返回值，并为单个异步返回值提供基本支持。
+
+* 控制器可以流式传输多个值，包括SSE和原始数据。
+
+* 控制器可以使用反应式客户端并为响应处理返回反应式类型。
+
+
+
+### 1.6.1. `DeferredResult`
+
+一旦在Servlet容器中开启异步请求处理的功能，控制器可以用`DeferredResult`包装任何支持的控制器方法返回值：
+
+```java
+@GetMapping("/quotes")
+@ResponseBody
+public DeferredResult<String> quotes() {
+    DeferredResult<String> deferredResult = new DeferredResult<String>();
+    // Save the deferredResult somewhere..
+    return deferredResult;
+}
+
+// From some other thread...
+deferredResult.setResult(result);
+```
+
+控制器从另一个线程中产生异步返回值-例如，响应外部时间（JMS消息），一个调度任务或其他事件。
+
+
+
+### 1.6.2. `Callbale`
+
+
+
+控制器可以使用`java.util.concurrent.Callbale`将返回值包装：
+
+```java
+@PostMapping
+public Callable<String> processUpload(final MultipartFile file) {
+
+    return new Callable<String>() {
+        public String call() throws Exception {
+            // ...
+            return "someView";
+        }
+    };
+}
+```
+
+然后，可以通过配置的`TaskExecutor`运行指定任务来获取返回值。
+
+
+
+### 1.6.3. 处理
+
+这是Servlet异步请求处理的非常简洁的描述：
+
+* `ServletRequest`可以调用`request.startAsync()`方法设置为异步模式。这样做的主要效果是`Servlet`（以及所有过滤器）可以退出，但是响应保持打开状态，以便以后完成处理。
+
+* 调用`request.startAsync()`返回`AsyncContext`，可以将其用于进一步控制异步处理。例如，它提供`dispatch`方法，与Servlet API的转发非常相似，不同支出在于，它是应用程序可以恢复对Servlet容器线程的请求处理。
+
+* `ServletRequest`提供访问当前`DispatcherType`,可以使用它来区分处理初始请求，异步调度、转发和其他调度类型。
+
+
+
+`DeferredResult`处理工作如下：
+
+* 控制器返回`DeferredResult`，并将其保存在一些内存队列或列表中，可以在其中访问。
+
+* Spring MVC调用`request.startAsync()`。
+
+* 同事，`DispatcherServlet`和所有已配置的过滤器退出请求处理线程 ，但响应保持打开状态。
+
+* 应用程序从某个线程设置`DeferredResult`，Spring MVC将请求分派会Servlet容器。
+
+* `DespatcherServlet`再次被调用，并使用异步产生的返回值恢复处理。
+
 
