@@ -1901,7 +1901,7 @@ public Callable<String> processUpload(final MultipartFile file) {
 
 * `ServletRequest`可以调用`request.startAsync()`方法设置为异步模式。这样做的主要效果是`Servlet`（以及所有过滤器）可以退出，但是响应保持打开状态，以便以后完成处理。
 
-* 调用`request.startAsync()`返回`AsyncContext`，可以将其用于进一步控制异步处理。例如，它提供`dispatch`方法，与Servlet API的转发非常相似，不同支出在于，它是应用程序可以恢复对Servlet容器线程的请求处理。
+* 调用`request.startAsync()`返回`AsyncContext`，可以将其用于进一步控制异步处理。例如，它提供`dispatch`方法，与Servlet API的转发非常相似，不同之处在于，它使应用程序可以恢复对Servlet容器线程的请求处理。
 
 * `ServletRequest`提供访问当前`DispatcherType`,可以使用它来区分处理初始请求，异步调度、转发和其他调度类型。
 
@@ -1913,10 +1913,517 @@ public Callable<String> processUpload(final MultipartFile file) {
 
 * Spring MVC调用`request.startAsync()`。
 
-* 同事，`DispatcherServlet`和所有已配置的过滤器退出请求处理线程 ，但响应保持打开状态。
+* 同时，`DispatcherServlet`和所有已配置的过滤器退出请求处理线程 ，但响应保持打开状态。
 
 * 应用程序从某个线程设置`DeferredResult`，Spring MVC将请求分派会Servlet容器。
 
 * `DespatcherServlet`再次被调用，并使用异步产生的返回值恢复处理。
+
+
+
+**异常处理**
+
+当使用`DeferredResult`时，可以选择是否回调`setResult`或带有异常的`setErrorResult`。在这两种情况下，Spring MVC都将请求分派回Servlet容器以完成处理。然后将其视为控制器方法返回了指定值，或者好像它产生了指定的异常一样。然后，异常将通过常规的异常处理机制进行处理（例如，调用`@ExceptionHandler`方法）。
+
+
+
+当使用`Callbale`时，会发生相似的处理逻辑，主要的区别在于结果或引发的异常是从`Callbal`返回的。
+
+
+
+**拦截**
+
+`HandlerInterceptor`实例可以是`AsyncHandlerInterceptor`类型，用来接收在异步处理的初始请求（而不是`postHandler`和`afterCompletion`）上的`afterConcurrentHandlingStated`回调。
+
+
+
+它的实现也可以注册`CallableProcessingInterceptor`或`DeferredResultProcessingINterceptor`，用于与异步请求的生命周期进行更深入的集成（例如，处理超时时间）。
+
+
+
+`DeferredResult`提供`onTimeout(Runnable)`和`onCompletion(Runnable)`回调。参考 [javadoc of DeferredResult](https://docs.spring.io/spring-framework/docs/5.3.3/javadoc-api/org/springframework/web/context/request/async/DeferredResult.html)来获取更多细节。可以用`Callable`代替`WebAsyncTask`，它公开了超时和完成回调的其他方法。
+
+
+
+**与WebFlux比较**
+
+Servlet API最初是为了通过Filter-Servlet链进行一次传递而构建的。在Servlet 3.0中，增加了异步请求处理，让应用程序退出Filter-Servlet链，但保留响应以进行进一步处理。Spring MVC异步支持围绕该机制构建。当控制器返回一个`DeferredResult`时，Filter-Servlet链退出，并且Servlet 容器线程被释放。随后，当`DeferredResult`被设置时，进行`ASYNC` 调度（到相同的UR），在此期间再次唤醒控制器，但是不是调用它，而是使用`DeferredResult`值（就像控制器返回它一样）来恢复处理。
+
+
+
+相比，Spring WebFlux不是构建在Servlet API之上的，它也不需要诸如异步请求处理这样的功能，因为它在设计上是异步的。异步处理已内置在所有框架约定中，并在请求处理的所有阶段得到内在支持。
+
+
+
+从编程模型的角度来说，Spring MVC和Spring WebFlux都支持异步，并在控制器方法中可以将Reactive Types作为返回值。Spring MVC甚至支持流，包括反应背压（**在数据流从上游生产者向下游消费者传输的过程中，上游生产速度大于下游消费速度，导致下游的 Buffer 溢出，这种现象就叫做 Backpressure 出现。**）。但是与WebFlux不同，WebFlux依赖于非阻塞I/O，并且每次写入都不需要额外的线程，因此对响应的单个写入仍然处于阻塞状态（并在单独的线程上执行）。
+
+
+
+另外一个基本区别是，Spring MVC在控制器方法参数中不支持异步或响应类型（例如，`@RequestBody`，`@RequestPart`等），它也没有对异步和反应式类型作为模型属性的任何显示支持。Spring WebFlux支持所有这些功能。
+
+
+
+### 1.6.4. HTTP 流
+
+可以使用`DeferredResult`和`Callable`用于单个异步返回值。如果要产生多个异步值并将这些值写入响应中应该怎么办？下面会讨论如何实现。
+
+
+
+**Objects**
+
+可以使用`ResponseBodyEmitter`返回值来生产对象流，每个对象通过`HttpMessageConverter`序列化并且写入响应，如下面展示的例子：
+
+```java
+@GetMapping("/events")
+public ResponseBodyEmitter handle() {
+    ResponseBodyEmitter emitter = new ResponseBodyEmitter();
+    // Save the emitter somewhere..
+    return emitter;
+}
+
+// In some other thread
+emitter.send("Hello once");
+
+// and again later on
+emitter.send("Hello again");
+
+// and done at some point
+emitter.complete();
+```
+
+可以在`ResponseEntity`中使用`ResponseBodyEmitter`作为消息体，可以自定义响应状态和响应头。
+
+
+
+当`emitter`抛出`IOException`时（例如，如果远程客户端消失了），应用程序不负责清理连接，并且不应该调用`emitter.complete`或`emitter.completeWithError`。相反，servlet容器自动初始化一个`AsyncListener`错误通知，Spring MVC在该通知中调用`completeWithError`。这个调用依次向应用程序执行最后一次异步调度，在此期间Spring MVC调用配置的异常解析器并完成请求。
+
+
+
+**SSE**
+
+`SseEmitter`（`ResponseBodyEmitter`的一个子类）为Server-Sent Events提供支持，该事件来自服务器，根据W3C SSE规范进行格式化。要从控制器生成`SSE`流，需要返回`SseEmitter`，如以下示例所示：
+
+```java
+@GetMapping(path="/events", produces=MediaType.TEXT_EVENT_STREAM_VALUE)
+public SseEmitter handle() {
+    SseEmitter emitter = new SseEmitter();
+    // Save the emitter somewhere..
+    return emitter;
+}
+
+// In some other thread
+emitter.send("Hello once");
+
+// and again later on
+emitter.send("Hello again");
+
+// and done at some point
+emitter.complete();
+```
+
+虽然SSE是流式传输到浏览器的主要选项，但请注意，IE不支持服务器发送事件。考虑使用Spring的WebSocket messaging，与针对广泛浏览器的SockJS备选传输结合使用。
+
+
+
+**原始数据**
+
+有时候，绕过消息转换，直接流式传输到响应`OutputStream`很有用（例如，文件下载）。可以使用`StreamingResponseBody`作为返回值：
+
+```java
+@GetMapping("/download")
+public StreamingResponseBody handle() {
+    return new StreamingResponseBody() {
+        @Override
+        public void writeTo(OutputStream outputStream) throws IOException {
+            // write...
+        }
+    };
+}
+```
+
+可以在`ResponseEntity`中将`StreamingResponseBody`作为消息体，来自定义响应的状态和响应头。
+
+
+
+### 1.6.5. 反应式类型（略...）
+
+### 1.6.6. 断开连接
+
+当远程客户端消失时，Servlet API没有提供任何通知。因此，在流式传输到响应时，无论是否通过`SseEmitter`还是反应式类型，定期发送数据是很重要的，因为如果客户端断开连接，写入将失败。发送可以采用空的(仅带有注释的)SSE事件或任何其他数据的形式，另一方必须将其解释为心跳并忽略它。
+
+
+
+或者，考虑使用具有内置心跳机制的Web消息传递解决方案（例如，基于WebSocket的STOMP或具有SockJS的WebSocket）。
+
+
+
+### 1.6.7. 配置（略...）
+
+异步请求处理功能必须在Servlet容器级别开启。MVC配置也暴露了一些异步请求的可选项。
+
+
+
+## 1.7. 跨域资源共享
+
+Spring MVC可以处理CORS（跨域资源共享）。
+
+
+
+### 1.7.1. 介绍
+
+处于安全考虑，浏览器禁止AJAX调用当前域之外的资源。例如，可以在一个标签中拥有银行账户，在另一个标签中拥有evil.com。来自evil.com的脚本不能使用用户凭据向用户银行API发出AJAX请求，例如从账户中提取资金。
+
+
+
+跨域资源共享（CORS）是由大多数浏览器实现的W3C规范，可以让用户指定授权哪种类型的跨域请求，而不是使用基于IFRAME或JSONP的安全性较低且功能较弱的变通办法。
+
+
+
+### 1.7.2. 处理
+
+跨域规范区分预检请求，简单请求和实际请求。为了了解跨域如何共走，可与阅读[this article](https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS)及其他内容，来获取更多详细信息。
+
+
+
+Spring MVC `HandlerMapping`的实现为跨域提供了内置的支持。在成功将请求映射到处理器之后，`HandlerMaping`的实现为指定请求，处理器检查跨域配置并采取进一步动作。预检请求直接被处理，但是简单和实际跨域请求被拦截，验证，并要求设置跨域响应头。
+
+
+
+为了开启跨域请求（也就是说，`Origin`头存在并区别于主机的请求），需要一些明确声明的跨域配置。如果没有找到匹配的跨域配置，预检请求会被拒绝。没有将CORS头添加到简单和实际CORS请求的响应中，因此，浏览器拒绝了他们。
+
+
+
+每个`HandlerMapping`可以通过基于URL模式的`CorsConfiguration`映射单独配置。在大多数情况下，应用程序使用MVC Java配置或XML命名空间来声明这样的映射，这将导致将单个全局映射传递给所有`HandlerMapping`实例。
+
+
+
+可以在`HandlerMapping`级别的全局跨域配置与更细粒度的处理程序级别的CORS配置结合使用。例如，可以将`@CrossOrigin`注解用于类或方法级别（其他处理器可以实现`CorsConfigurationSource`）。
+
+
+
+全局和局部配置相结合的规则通常是可加的-例如，所有全局和所有本地来源。对于那些只能接受单个值的属性，例如`allowCredentials`和`maxAge`,则局部配置覆盖全局配置。
+
+> 要了解更多源代码或进行高级定制，请查看后面的代码:
+> 
+> * `CorsConfiguration`
+> 
+> * `CorsProcessor`，`DefaultCorsProcessor`
+> 
+> * `AbstractHandlerMapping`
+
+
+
+### 1.7.3. `@CorssOrigin`
+
+使用该注解，为控制器方法开启跨域请求：
+
+```java
+@RestController
+@RequestMapping("/account")
+public class AccountController {
+
+    @CrossOrigin
+    @GetMapping("/{id}")
+    public Account retrieve(@PathVariable Long id) {
+        // ...
+    }
+
+    @DeleteMapping("/{id}")
+    public void remove(@PathVariable Long id) {
+        // ...
+    }
+}
+```
+
+默认情况下，`@CrossOrigin`允许：
+
+* 所有源
+
+* 所有头
+
+* 所有控制器方法映射的请求方法
+
+
+
+`allowCredentials`默认不开启，因为它将建立一个信任级别，以公开敏感的用户特定信息（例如cookie和CSRF令牌），并仅在适当的地方使用。当开启后，`allowOrigins`设置一个或多个特定域（而不是特殊值”*“），或者将`allowOringins`属性用于匹配动态的一组源。
+
+
+
+`maxAge`被设置为30分钟。
+
+
+
+`@CrossOrigin`也支持类级别，并且所有方法都继承它：
+
+```java
+@CrossOrigin(origins = "https://domain2.com", maxAge = 3600)
+@RestController
+@RequestMapping("/account")
+public class AccountController {
+
+    @GetMapping("/{id}")
+    public Account retrieve(@PathVariable Long id) {
+        // ...
+    }
+
+    @DeleteMapping("/{id}")
+    public void remove(@PathVariable Long id) {
+        // ...
+    }
+}
+```
+
+也可以在类级别和方法级别同时使用该注解：
+
+```java
+@CrossOrigin(maxAge = 3600)
+@RestController
+@RequestMapping("/account")
+public class AccountController {
+
+    @CrossOrigin("https://domain2.com")
+    @GetMapping("/{id}")
+    public Account retrieve(@PathVariable Long id) {
+        // ...
+    }
+
+    @DeleteMapping("/{id}")
+    public void remove(@PathVariable Long id) {
+        // ...
+    }
+}
+```
+
+
+
+### 1.7.4. 全局配置
+
+除了细粒度的控制器方法级别配置，可能想要定义一些全局跨域配置。可以设置独立的基于URL的`CorsConfiguration`映射在任意`HandlerMapping`上。但是，大多数应用程序都使用MVC Java配置或MVC XML名称空间来做到这一点。
+
+
+
+默认情况下，全局配置启用如下：
+
+* 所有源
+
+* 所有请求头
+
+* `GET`，`HEAD`，`POST`方法
+
+
+
+`allowCredentials`默认不开启，因为它将建立一个信任级别，以公开敏感的用户特定信息（例如cookie和CSRF令牌），并仅在适当的地方使用。当开启后，`allowOrigins`设置一个或多个特定域（而不是特殊值”*“），或者将`allowOringins`属性用于匹配动态的一组源。
+
+
+
+`maxAge`被设置为30分钟。
+
+
+
+**Java 配置**
+
+为了在MVC Java配置中开启跨域，可以使用`CorsRegistry`回调：
+
+```java
+@Configuration
+@EnableWebMvc
+public class WebConfig implements WebMvcConfigurer {
+
+    @Override
+    public void addCorsMappings(CorsRegistry registry) {
+
+        registry.addMapping("/api/**")
+            .allowedOrigins("https://domain2.com")
+            .allowedMethods("PUT", "DELETE")
+            .allowedHeaders("header1", "header2", "header3")
+            .exposedHeaders("header1", "header2")
+            .allowCredentials(true).maxAge(3600);
+
+        // Add more mappings...
+    }
+}
+```
+
+
+
+**XML配置**
+
+为了在XML命名空间中开启跨域，可以使用`<mvc:cors>`元素：
+
+```java
+<mvc:cors>
+
+    <mvc:mapping path="/api/**"
+        allowed-origins="https://domain1.com, https://domain2.com"
+        allowed-methods="GET, PUT"
+        allowed-headers="header1, header2, header3"
+        exposed-headers="header1, header2" allow-credentials="true"
+        max-age="123" />
+
+    <mvc:mapping path="/resources/**"
+        allowed-origins="https://domain1.com" />
+
+</mvc:cors>
+```
+
+
+
+### 1.7.5. 跨域过滤器
+
+通过内置的`CorsFilter`，可以应用跨域支持。
+
+> 如果尝试与Spring Security一起使用`CorsFilter`，记住Spring Security为跨域提供内置的支持。
+
+
+
+为了配置过滤器，需要为它的构造器传递一个`CorsConfigurationSource`：
+
+```java
+CorsConfiguration config = new CorsConfiguration();
+
+// Possibly...
+// config.applyPermitDefaultValues()
+
+config.setAllowCredentials(true);
+config.addAllowedOrigin("https://domain1.com");
+config.addAllowedHeader("*");
+config.addAllowedMethod("*");
+
+UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+source.registerCorsConfiguration("/**", config);
+
+CorsFilter filter = new CorsFilter(source);
+```
+
+
+
+## 1.8. Web安全
+
+Spring Security项目为保护web应用程序提供支持，以保护恶意攻击。Spring Security参考文档包括：
+
+* [Spring MVC Security](https://docs.spring.io/spring-security/site/docs/current/reference/html5/#mvc)
+
+* [Spring MVC Test Support](https://docs.spring.io/spring-security/site/docs/current/reference/html5/#test-mockmvc)
+
+* [CSRF protection](https://docs.spring.io/spring-security/site/docs/current/reference/html5/#csrf)
+
+* [Security Response Headers](https://docs.spring.io/spring-security/site/docs/current/reference/html5/#headers)
+
+
+
+[HDIV](https://hdiv.org/)是另一个web安全框架，可以与Spring MVC集成。
+
+
+
+## 1.9. HTTP缓存
+
+HTTP缓存能够为web应用程序显著提升性能。它围绕`Cache-Control`响应头以及随后的条件请求头（例如`Last-Modified`和`ETag`）。`Cache-Control`为私有（例如浏览器）和公共（例如代理）缓存提供有关如何缓存和重用响应的建议。`ETag`头用于发出条件请求，如果内容未更改，则可能导致没有消息体的304（NOT_MODIFIED）。`ETag`可以看做是`Last-Modified`头的更复杂的后继者。
+
+
+
+本节描述了Spring Web MVC中与HTTP缓存相关的选项。
+
+### 1.9.1. `CacheControl`
+
+`CacheControl`支持配置与`Cache-Control`头相关的设置，并在许多地方作为参数被接受：
+
+* [WebContentInterceptor](https://docs.spring.io/spring-framework/docs/5.3.3/javadoc-api/org/springframework/web/servlet/mvc/WebContentInterceptor.html)
+
+* [WebContentGenerator](https://docs.spring.io/spring-framework/docs/5.3.3/javadoc-api/org/springframework/web/servlet/support/WebContentGenerator.html)
+
+* [Controllers](https://docs.spring.io/spring-framework/docs/current/reference/html/web.html#mvc-caching-etag-lastmodified)
+
+* [Static Resources](https://docs.spring.io/spring-framework/docs/current/reference/html/web.html#mvc-caching-static-resources)
+
+
+
+虽然RFC 7234描述了`Cache-Control`响应头的所有可能指令，但`CacheControl`类型采用了面向用例的方法，着重于常见方案：
+
+```java
+// Cache for an hour - "Cache-Control: max-age=3600"
+CacheControl ccCacheOneHour = CacheControl.maxAge(1, TimeUnit.HOURS);
+
+// Prevent caching - "Cache-Control: no-store"
+CacheControl ccNoStore = CacheControl.noStore();
+
+// Cache for ten days in public and private caches,
+// public caches should not transform the response
+// "Cache-Control: max-age=864000, public, no-transform"
+CacheControl ccCustom = CacheControl.maxAge(10, TimeUnit.DAYS).noTransform().cachePublic();
+```
+
+`WebContentGenerator`也接受一个更简单的`cachePeriod`属性：
+
+* `-1`不会生成`Cache-Control`响应头
+
+* `0`可以防止使用`Cache-Control`：无存储指令
+
+* n > 0值通过使用'Cache-Control: max-age=n'指令将给定的响应缓存n秒。
+
+
+
+### 1.9.2. 控制器
+
+控制器可以增加对HTTP缓存的显示支持。建议这么做，因为需要先计算资源的`lastModified`或`ETag`值，然后才能将其与条件请求头进行比较。控制器可以增加`ETag`头和`Cache-Control`设置到`ResponseEntiry`：
+
+```java
+@GetMapping("/book/{id}")
+public ResponseEntity<Book> showBook(@PathVariable Long id) {
+
+    Book book = findBook(id);
+    String version = book.getVersion();
+
+    return ResponseEntity
+            .ok()
+            .cacheControl(CacheControl.maxAge(30, TimeUnit.DAYS))
+            .eTag(version) // lastModified is also available
+            .body(book);
+}
+```
+
+
+
+如果与条件请求标头的比较表明内容未更改，则前面的示例发送带有空正文的304（NOT_MODIFIED）响应。否则，`ETag`和`Cache-Control`标头将添加到响应中。
+
+
+
+还可以根据控制器中的条件请求头进行检查：
+
+```java
+@RequestMapping
+public String myHandleMethod(WebRequest request, Model model) {
+
+    long eTag = ...  1
+
+    if (request.checkNotModified(eTag)) {
+        return null;  2
+    }
+
+    model.addAttribute(...);  3
+    return "myViewName";
+}
+```
+
+<mark>1 </mark>特定于应用程序的计算
+
+<mark>2 </mark>响应被设置为304（NOT_MODIFIED）-没有更进一步处理
+
+<mark>3 </mark>继续处理请求
+
+
+
+可以使用三种变体来检查针对`eTag`值，`lastModified`值或者两者的条件请求。对于条件GET和HEAD请求，您可以将响应设置为304（NOT_MODIFIED）。对于条件POST，PUT和DELETE，您可以将响应设置为412（PRECONDITION_FAILED），以防止并发修改。
+
+
+
+### 1.9.3 静态资源
+
+应该为静态资源提供Cache-Control和条件响应标头，以实现最佳性能。请参阅有关配置静态资源的部分。
+
+
+
+### 1.9.4. `ETag`过滤器
+
+可以使用`ShallowEtagHeaderFilter`来添加根据响应内容计算的”浅“`eTag`值，从而节省带宽，但不节省CPU时间。
 
 
