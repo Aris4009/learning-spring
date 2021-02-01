@@ -1594,15 +1594,9 @@ public class UserController extends AbstractController {
 
 * 在`@RequestMapping`方法上标记其返回值的是模型属性
 
-
-
 本节讨论`@ModelAttribute`方法-前面列表中的第二项。一个控制器可以有任意数量的`@ModelAttribute`方法。所有这样的方法在相同控制器中的`@RequestMapping`方法前被调用。一个`@ModelAttribute`方法通过`@ControllerAdvice`也可以跨控制器空想。参考控制器通知获取更多细节。
 
-
-
 `@ModelAttribute`方法有灵活的方法签名。他们想`@RequestMapping`方法一样支持许多相同的参数，除了`@ModelAttribute`本身与请求主题相关的任何东西之外。
-
-
 
 下面的例子展示 `@ModelAttribute`方法：
 
@@ -1613,8 +1607,6 @@ public void populateModel(@RequestParam String number, Model model) {
     // add more ...
 }
 ```
-
-
 
 下面的例子仅增加了一个属性：
 
@@ -1627,8 +1619,6 @@ public Account addAccount(@RequestParam String number) {
 
 > 当没有明确指定名称时，默认的名称是基于`Object`的类型。可以总是通过使用重载`addAttribute`方法或通过在`@ModelAttribute`（对于一个返回值)上的`name`属性来明确指定名称。
 
-
-
 可以使用`@ModelAttribute`作为在`@RequestMapping`方法上的方法级别注解，在这种情况下，`@RequestMapping`方法的返回值将解释为模型属性。这通常不是必须的，因为这是HTML控制器的默认行为，除非返回值是一个`String`，否则它江北解释为视图名称。`@ModelAttribute`也可以自定义模型属性名称：
 
 ```java
@@ -1640,8 +1630,6 @@ public Account handle() {
 }
 ```
 
-
-
 ### 1.3.5. `DataBinder`
 
 `@Controller`或`@ControllerAdvice`类可以使用`@InitBinder`方法，来初始化`WebDataBinder`实例：
@@ -1652,11 +1640,7 @@ public Account handle() {
 
 * 当呈现HTML表单时，将模型对象的值格式化为`String`。
 
-
-
 `@InitBinder`方法可以注册指定控制器`java.beans.PropertyEditor`或Spring `Converter`和`Formatter`组件。此外可以使用MVC config在全局共享的`FormattingConversionService`注册`Converter`和`Formatter`。
-
-
 
 `@InitBinder`方法支持与`@RequestMapping`方法相同的多种参数，除了`@ModelAttribute`参数（命令对象）。通常，他们使用`WebDataBinder`参数（用于注册）和`void`返回值声明：
 
@@ -1677,8 +1661,6 @@ public class FormController {
 
 <mark>1 </mark>定义了一个`@InitBinder`方法
 
-
-
 另外，当通过共享的`FormattingConversionService`使用基于`Formatter`的设置时，可以重新使用相同的方法并注册特定于控制器的`Formatter`实现：
 
 ```java
@@ -1695,8 +1677,6 @@ public class FormController {
 ```
 
 <mark>1 </mark>定义一个`@InitBinder`在自定义格式器上。
-
-
 
 ### 1.3.6. 异常
 
@@ -1717,11 +1697,7 @@ public class SimpleController {
 
 该异常可能与正在传播到顶级异常（例如直接应发的`IOException`）或包装器异常内的嵌套原因（例如，包装在`IllegalStateException`中的`IOException`）匹配。从5.3开始。这可以在任意愿意级别上匹配，而以前只考虑了直接原因。
 
-
-
 对于匹配的异常类型，如前面的实例所示，最好将目标异常声明为参数方法。当多个异常方法匹配时，与异常原因匹配相比，通常首选根异常匹配。更具体地说，`ExceptionDepthComparator`用于根据从引发的异常类型开始的深度对异常进行排序。
-
-
 
 另外，注解声明可以缩小异常类型以使其匹配，如一下示例所示：
 
@@ -1738,8 +1714,6 @@ public class SimpleController {
 }
 ```
 
-
-
 甚至可以使用带有非常通用的参数签名的特定异常类型的列表，如以下示例所示：
 
 ```java
@@ -1749,65 +1723,39 @@ public ResponseEntity<String> handle(Exception ex) {
 }
 ```
 
-
-
 >  根异常和原因异常匹配之间的区别可能会令人惊讶。
-> 
 > 
 > 在前面显示的`IOException`变体中，通常使用实际的`FileSystemExcepiton`或`RemoteException`实例作为参数来调用该方法，因为这两个实例均从`IOException`扩展。但是，如果任何此类匹配异常都在本身是`IOException`的包装器异常中传播，则传入的异常实例就是该包装器异常。
 > 
-> 
 > 在`handle(Exception)`变体中这种行为甚至更简单。在包装方案中，它总是使用包装程序异常来调用此方法。在这种情况下，实际匹配的异常可以通过`ex.getCause()`找到。仅当将他们作为顶级异常抛出时，传入的异常才是实际的`FileSystemException`或`RemoteException`实例。
-
-
 
 通常建议在参数签名中尽可能具体，以减少跟类型和原因异常类型之间不匹配的可能性。考虑将多重匹配方法分解为单独的`@ExceptionHandler`方法，每个方法均通过其签名匹配单个特定的异常类型。
 
-
-
 在多个`@ControllerAdvice`排列中，建议在以相应顺序优先的`@ControllerAdvice`上声明主要的根异常映射。尽管根异常匹配是原因的首选，但这是在指定控制器扩`@ControllerAdvice`类的方法之间定义的。这意味着优先级较高的`@ControllerAdvice` bean上的原因匹配优先于优先级较低的`@ControllerAdvice` bean上的任何匹配（例如，根）。
-
-
 
 最后但并非不重要的一点是，`@ExceptionHandler`方法实现可以选择通过以原始形式重新抛出异常来退出处理指定异常的实例。在仅对根级别匹配或无法静态确定的特定上下文的匹配的情况下，这很有用。重新抛出的异常会在其余的解决方案链中传播，就像指定的`@ExceptionHandler`方法最初不会匹配一样。
 
-
-
 Spring MVC中对`@ExceptionHandler`方法的支持建立在`DispatcherServlet`级别，`HandlerExceptionrsolver`机制上。
-
-
 
 **方法参数（略...）**
 
 **返回类型（略...）**
 
-
-
 **REST API 异常**
 
 对于REST服务的常用需求是在响应中包含错误详细信息。Spring框架不会自动这样做，因为响应体的错误细节的表示是特定于应用程序的。但是，`@RestController`可以使用带有`ResponseEntity`返回值的`@ExceptionHandler`方法来设置状态和响应体。这样的方法也可以声明在`@ControllerAdvice`类中并将他们应用于全局。
-
-
 
 应用程序实现带有错误细节响应体的全局异常处理，应该考虑扩展ResponseEntityExceptionHandler
 
 ，它可以提供处理那些Spring MVC引发的异常，并且提供钩子以自定义响应体。要使用此功能，请创建ResponseEntityExceptionHandler的子类，并使用@ControllerAdvice对其进行注释，重写必需的方法，并将其声明为Spring bean。
 
-
-
 ### 1.3.7. Controller Advice
 
 通常，`@ExceptionHandler`,`@InitBinder`和`@ModelAttribute`方法与`@Controller`类一起应用（或该类的继承）。如果想要将这些方法应用于全局（跨控制器），可以将他们声明在带有`@ControllerAdvice`或`@RestControllerAdvice`的类中。
 
-
-
 `@ControllerAdvice`通常带有`@Component`批注，意味着这些类可以通过组件扫描注册为Spring beans。`@RestControllerAdvice`是一个组合注解，它是`@ControllerAdvice`与`@ResponseBody`的组合，本质上意味着`@ExceptionHandler`方法通过消息转换（多种视图解析或模板绘制）来呈现响应体。
 
-
-
 启动时，`@RequestMapping`和`@ExceptionHandler`方法的基础结构类将检测使用`@ControllerAdvice`注解的Spring beans，然后在运行时应用其方法。全局`@ExceptionHandler`方法（从`@ControllerAdvice`）在本地方法（来自`@Controller`）之后应用。相比之下，全局`@ModelAttribute`和`@InitBinder`方法在本地方法之前应用。
-
-
 
 默认情况下，`@ControllerAdvice`方法应用于每个请求（也就是说，所有的控制器），但是可以通过使用注解属性来缩小控制器的范围：
 
@@ -1827,17 +1775,11 @@ public class ExampleAdvice3 {}
 
 前面示例中的选择器在运行时进行评估，如果广泛使用，可能会对性能产生负面影响。
 
-
-
 ## 1.4. 函数式端点（略...）
 
 Spring Web MVC包含WebMvc.fn，一个轻量级的函数式编程模型，这些函数用来路由和处理请求，并且将合约设计为不可变的。它是基于注解的编程模型的替代方案，但可以在同一个`DispatcherServlet`上运行。
 
-
-
 ## 1.5. URI 连接（略...）
-
-
 
 ## 1.6. 异步请求
 
@@ -1848,8 +1790,6 @@ Spring MVC扩展集成了Servlet 3.0的异步请求处理：
 * 控制器可以流式传输多个值，包括SSE和原始数据。
 
 * 控制器可以使用反应式客户端并为响应处理返回反应式类型。
-
-
 
 ### 1.6.1. `DeferredResult`
 
@@ -1870,11 +1810,7 @@ deferredResult.setResult(result);
 
 控制器从另一个线程中产生异步返回值-例如，响应外部时间（JMS消息），一个调度任务或其他事件。
 
-
-
 ### 1.6.2. `Callbale`
-
-
 
 控制器可以使用`java.util.concurrent.Callbale`将返回值包装：
 
@@ -1893,8 +1829,6 @@ public Callable<String> processUpload(final MultipartFile file) {
 
 然后，可以通过配置的`TaskExecutor`运行指定任务来获取返回值。
 
-
-
 ### 1.6.3. 处理
 
 这是Servlet异步请求处理的非常简洁的描述：
@@ -1904,8 +1838,6 @@ public Callable<String> processUpload(final MultipartFile file) {
 * 调用`request.startAsync()`返回`AsyncContext`，可以将其用于进一步控制异步处理。例如，它提供`dispatch`方法，与Servlet API的转发非常相似，不同之处在于，它使应用程序可以恢复对Servlet容器线程的请求处理。
 
 * `ServletRequest`提供访问当前`DispatcherType`,可以使用它来区分处理初始请求，异步调度、转发和其他调度类型。
-
-
 
 `DeferredResult`处理工作如下：
 
@@ -1919,55 +1851,33 @@ public Callable<String> processUpload(final MultipartFile file) {
 
 * `DespatcherServlet`再次被调用，并使用异步产生的返回值恢复处理。
 
-
-
 **异常处理**
 
 当使用`DeferredResult`时，可以选择是否回调`setResult`或带有异常的`setErrorResult`。在这两种情况下，Spring MVC都将请求分派回Servlet容器以完成处理。然后将其视为控制器方法返回了指定值，或者好像它产生了指定的异常一样。然后，异常将通过常规的异常处理机制进行处理（例如，调用`@ExceptionHandler`方法）。
 
-
-
 当使用`Callbale`时，会发生相似的处理逻辑，主要的区别在于结果或引发的异常是从`Callbal`返回的。
-
-
 
 **拦截**
 
 `HandlerInterceptor`实例可以是`AsyncHandlerInterceptor`类型，用来接收在异步处理的初始请求（而不是`postHandler`和`afterCompletion`）上的`afterConcurrentHandlingStated`回调。
 
-
-
 它的实现也可以注册`CallableProcessingInterceptor`或`DeferredResultProcessingINterceptor`，用于与异步请求的生命周期进行更深入的集成（例如，处理超时时间）。
 
-
-
 `DeferredResult`提供`onTimeout(Runnable)`和`onCompletion(Runnable)`回调。参考 [javadoc of DeferredResult](https://docs.spring.io/spring-framework/docs/5.3.3/javadoc-api/org/springframework/web/context/request/async/DeferredResult.html)来获取更多细节。可以用`Callable`代替`WebAsyncTask`，它公开了超时和完成回调的其他方法。
-
-
 
 **与WebFlux比较**
 
 Servlet API最初是为了通过Filter-Servlet链进行一次传递而构建的。在Servlet 3.0中，增加了异步请求处理，让应用程序退出Filter-Servlet链，但保留响应以进行进一步处理。Spring MVC异步支持围绕该机制构建。当控制器返回一个`DeferredResult`时，Filter-Servlet链退出，并且Servlet 容器线程被释放。随后，当`DeferredResult`被设置时，进行`ASYNC` 调度（到相同的UR），在此期间再次唤醒控制器，但是不是调用它，而是使用`DeferredResult`值（就像控制器返回它一样）来恢复处理。
 
-
-
 相比，Spring WebFlux不是构建在Servlet API之上的，它也不需要诸如异步请求处理这样的功能，因为它在设计上是异步的。异步处理已内置在所有框架约定中，并在请求处理的所有阶段得到内在支持。
-
-
 
 从编程模型的角度来说，Spring MVC和Spring WebFlux都支持异步，并在控制器方法中可以将Reactive Types作为返回值。Spring MVC甚至支持流，包括反应背压（**在数据流从上游生产者向下游消费者传输的过程中，上游生产速度大于下游消费速度，导致下游的 Buffer 溢出，这种现象就叫做 Backpressure 出现。**）。但是与WebFlux不同，WebFlux依赖于非阻塞I/O，并且每次写入都不需要额外的线程，因此对响应的单个写入仍然处于阻塞状态（并在单独的线程上执行）。
 
-
-
 另外一个基本区别是，Spring MVC在控制器方法参数中不支持异步或响应类型（例如，`@RequestBody`，`@RequestPart`等），它也没有对异步和反应式类型作为模型属性的任何显示支持。Spring WebFlux支持所有这些功能。
-
-
 
 ### 1.6.4. HTTP 流
 
 可以使用`DeferredResult`和`Callable`用于单个异步返回值。如果要产生多个异步值并将这些值写入响应中应该怎么办？下面会讨论如何实现。
-
-
 
 **Objects**
 
@@ -1993,11 +1903,7 @@ emitter.complete();
 
 可以在`ResponseEntity`中使用`ResponseBodyEmitter`作为消息体，可以自定义响应状态和响应头。
 
-
-
 当`emitter`抛出`IOException`时（例如，如果远程客户端消失了），应用程序不负责清理连接，并且不应该调用`emitter.complete`或`emitter.completeWithError`。相反，servlet容器自动初始化一个`AsyncListener`错误通知，Spring MVC在该通知中调用`completeWithError`。这个调用依次向应用程序执行最后一次异步调度，在此期间Spring MVC调用配置的异常解析器并完成请求。
-
-
 
 **SSE**
 
@@ -2023,8 +1929,6 @@ emitter.complete();
 
 虽然SSE是流式传输到浏览器的主要选项，但请注意，IE不支持服务器发送事件。考虑使用Spring的WebSocket messaging，与针对广泛浏览器的SockJS备选传输结合使用。
 
-
-
 **原始数据**
 
 有时候，绕过消息转换，直接流式传输到响应`OutputStream`很有用（例如，文件下载）。可以使用`StreamingResponseBody`作为返回值：
@@ -2043,63 +1947,39 @@ public StreamingResponseBody handle() {
 
 可以在`ResponseEntity`中将`StreamingResponseBody`作为消息体，来自定义响应的状态和响应头。
 
-
-
 ### 1.6.5. 反应式类型（略...）
 
 ### 1.6.6. 断开连接
 
 当远程客户端消失时，Servlet API没有提供任何通知。因此，在流式传输到响应时，无论是否通过`SseEmitter`还是反应式类型，定期发送数据是很重要的，因为如果客户端断开连接，写入将失败。发送可以采用空的(仅带有注释的)SSE事件或任何其他数据的形式，另一方必须将其解释为心跳并忽略它。
 
-
-
 或者，考虑使用具有内置心跳机制的Web消息传递解决方案（例如，基于WebSocket的STOMP或具有SockJS的WebSocket）。
-
-
 
 ### 1.6.7. 配置（略...）
 
 异步请求处理功能必须在Servlet容器级别开启。MVC配置也暴露了一些异步请求的可选项。
 
-
-
 ## 1.7. 跨域资源共享
 
 Spring MVC可以处理CORS（跨域资源共享）。
-
-
 
 ### 1.7.1. 介绍
 
 处于安全考虑，浏览器禁止AJAX调用当前域之外的资源。例如，可以在一个标签中拥有银行账户，在另一个标签中拥有evil.com。来自evil.com的脚本不能使用用户凭据向用户银行API发出AJAX请求，例如从账户中提取资金。
 
-
-
 跨域资源共享（CORS）是由大多数浏览器实现的W3C规范，可以让用户指定授权哪种类型的跨域请求，而不是使用基于IFRAME或JSONP的安全性较低且功能较弱的变通办法。
-
-
 
 ### 1.7.2. 处理
 
 跨域规范区分预检请求，简单请求和实际请求。为了了解跨域如何共走，可与阅读[this article](https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS)及其他内容，来获取更多详细信息。
 
-
-
 Spring MVC `HandlerMapping`的实现为跨域提供了内置的支持。在成功将请求映射到处理器之后，`HandlerMaping`的实现为指定请求，处理器检查跨域配置并采取进一步动作。预检请求直接被处理，但是简单和实际跨域请求被拦截，验证，并要求设置跨域响应头。
-
-
 
 为了开启跨域请求（也就是说，`Origin`头存在并区别于主机的请求），需要一些明确声明的跨域配置。如果没有找到匹配的跨域配置，预检请求会被拒绝。没有将CORS头添加到简单和实际CORS请求的响应中，因此，浏览器拒绝了他们。
 
-
-
 每个`HandlerMapping`可以通过基于URL模式的`CorsConfiguration`映射单独配置。在大多数情况下，应用程序使用MVC Java配置或XML命名空间来声明这样的映射，这将导致将单个全局映射传递给所有`HandlerMapping`实例。
 
-
-
 可以在`HandlerMapping`级别的全局跨域配置与更细粒度的处理程序级别的CORS配置结合使用。例如，可以将`@CrossOrigin`注解用于类或方法级别（其他处理器可以实现`CorsConfigurationSource`）。
-
-
 
 全局和局部配置相结合的规则通常是可加的-例如，所有全局和所有本地来源。对于那些只能接受单个值的属性，例如`allowCredentials`和`maxAge`,则局部配置覆盖全局配置。
 
@@ -2110,8 +1990,6 @@ Spring MVC `HandlerMapping`的实现为跨域提供了内置的支持。在成�
 > * `CorsProcessor`，`DefaultCorsProcessor`
 > 
 > * `AbstractHandlerMapping`
-
-
 
 ### 1.7.3. `@CorssOrigin`
 
@@ -2143,15 +2021,9 @@ public class AccountController {
 
 * 所有控制器方法映射的请求方法
 
-
-
 `allowCredentials`默认不开启，因为它将建立一个信任级别，以公开敏感的用户特定信息（例如cookie和CSRF令牌），并仅在适当的地方使用。当开启后，`allowOrigins`设置一个或多个特定域（而不是特殊值”*“），或者将`allowOringins`属性用于匹配动态的一组源。
 
-
-
 `maxAge`被设置为30分钟。
-
-
 
 `@CrossOrigin`也支持类级别，并且所有方法都继承它：
 
@@ -2194,13 +2066,9 @@ public class AccountController {
 }
 ```
 
-
-
 ### 1.7.4. 全局配置
 
 除了细粒度的控制器方法级别配置，可能想要定义一些全局跨域配置。可以设置独立的基于URL的`CorsConfiguration`映射在任意`HandlerMapping`上。但是，大多数应用程序都使用MVC Java配置或MVC XML名称空间来做到这一点。
-
-
 
 默认情况下，全局配置启用如下：
 
@@ -2210,15 +2078,9 @@ public class AccountController {
 
 * `GET`，`HEAD`，`POST`方法
 
-
-
 `allowCredentials`默认不开启，因为它将建立一个信任级别，以公开敏感的用户特定信息（例如cookie和CSRF令牌），并仅在适当的地方使用。当开启后，`allowOrigins`设置一个或多个特定域（而不是特殊值”*“），或者将`allowOringins`属性用于匹配动态的一组源。
 
-
-
 `maxAge`被设置为30分钟。
-
-
 
 **Java 配置**
 
@@ -2244,8 +2106,6 @@ public class WebConfig implements WebMvcConfigurer {
 }
 ```
 
-
-
 **XML配置**
 
 为了在XML命名空间中开启跨域，可以使用`<mvc:cors>`元素：
@@ -2266,15 +2126,11 @@ public class WebConfig implements WebMvcConfigurer {
 </mvc:cors>
 ```
 
-
-
 ### 1.7.5. 跨域过滤器
 
 通过内置的`CorsFilter`，可以应用跨域支持。
 
 > 如果尝试与Spring Security一起使用`CorsFilter`，记住Spring Security为跨域提供内置的支持。
-
-
 
 为了配置过滤器，需要为它的构造器传递一个`CorsConfigurationSource`：
 
@@ -2295,8 +2151,6 @@ source.registerCorsConfiguration("/**", config);
 CorsFilter filter = new CorsFilter(source);
 ```
 
-
-
 ## 1.8. Web安全
 
 Spring Security项目为保护web应用程序提供支持，以保护恶意攻击。Spring Security参考文档包括：
@@ -2309,17 +2163,11 @@ Spring Security项目为保护web应用程序提供支持，以保护恶意攻�
 
 * [Security Response Headers](https://docs.spring.io/spring-security/site/docs/current/reference/html5/#headers)
 
-
-
 [HDIV](https://hdiv.org/)是另一个web安全框架，可以与Spring MVC集成。
-
-
 
 ## 1.9. HTTP缓存
 
 HTTP缓存能够为web应用程序显著提升性能。它围绕`Cache-Control`响应头以及随后的条件请求头（例如`Last-Modified`和`ETag`）。`Cache-Control`为私有（例如浏览器）和公共（例如代理）缓存提供有关如何缓存和重用响应的建议。`ETag`头用于发出条件请求，如果内容未更改，则可能导致没有消息体的304（NOT_MODIFIED）。`ETag`可以看做是`Last-Modified`头的更复杂的后继者。
-
-
 
 本节描述了Spring Web MVC中与HTTP缓存相关的选项。
 
@@ -2334,8 +2182,6 @@ HTTP缓存能够为web应用程序显著提升性能。它围绕`Cache-Control`�
 * [Controllers](https://docs.spring.io/spring-framework/docs/current/reference/html/web.html#mvc-caching-etag-lastmodified)
 
 * [Static Resources](https://docs.spring.io/spring-framework/docs/current/reference/html/web.html#mvc-caching-static-resources)
-
-
 
 虽然RFC 7234描述了`Cache-Control`响应头的所有可能指令，但`CacheControl`类型采用了面向用例的方法，着重于常见方案：
 
@@ -2360,8 +2206,6 @@ CacheControl ccCustom = CacheControl.maxAge(10, TimeUnit.DAYS).noTransform().cac
 
 * n > 0值通过使用'Cache-Control: max-age=n'指令将给定的响应缓存n秒。
 
-
-
 ### 1.9.2. 控制器
 
 控制器可以增加对HTTP缓存的显示支持。建议这么做，因为需要先计算资源的`lastModified`或`ETag`值，然后才能将其与条件请求头进行比较。控制器可以增加`ETag`头和`Cache-Control`设置到`ResponseEntiry`：
@@ -2381,11 +2225,7 @@ public ResponseEntity<Book> showBook(@PathVariable Long id) {
 }
 ```
 
-
-
 如果与条件请求标头的比较表明内容未更改，则前面的示例发送带有空正文的304（NOT_MODIFIED）响应。否则，`ETag`和`Cache-Control`标头将添加到响应中。
-
-
 
 还可以根据控制器中的条件请求头进行检查：
 
@@ -2410,20 +2250,622 @@ public String myHandleMethod(WebRequest request, Model model) {
 
 <mark>3 </mark>继续处理请求
 
-
-
 可以使用三种变体来检查针对`eTag`值，`lastModified`值或者两者的条件请求。对于条件GET和HEAD请求，您可以将响应设置为304（NOT_MODIFIED）。对于条件POST，PUT和DELETE，您可以将响应设置为412（PRECONDITION_FAILED），以防止并发修改。
-
-
 
 ### 1.9.3 静态资源
 
 应该为静态资源提供Cache-Control和条件响应标头，以实现最佳性能。请参阅有关配置静态资源的部分。
 
-
-
 ### 1.9.4. `ETag`过滤器
 
 可以使用`ShallowEtagHeaderFilter`来添加根据响应内容计算的”浅“`eTag`值，从而节省带宽，但不节省CPU时间。
 
+## 1.10 视图技术
 
+ 在Spring MVC中使用的视图技术是可插拔的。无论决定使用哪种视图技术，主要的问题是配置改变。本章将涵盖通过Spring MVC集成视图技术。
+
+> Spring MVC应用程序的视图位于该应用程序的内部信任范围内。视图可以访问应用程序上下文中的所有bean。因此，不建议在外部源可编辑模板的应用程序中使用Spring MVC的模板支持，因为这可能会带来安全隐患。
+
+### 1.10.1. Thymeleaf（略...）
+
+### 1.10.2. FreeMarker（略...）
+
+### 1.10.3. Groovy Markup（略...）
+
+### 1.10.4. Script Views（略...）
+
+### 1.10.5. JSP和JSTL（略...）
+
+### 1.10.6. Tiles（略）
+
+### 1.10.7. RSS和Atom（略...）
+
+### 1.10.8. PDF和Excel
+
+Spring提供了返回HTML以外的输出的方法，包括PDF和Excel电子表格。本节介绍如何使用这些功能。
+
+**文档视图简介**
+
+HTML页面并非始终是用户查看模型输出的最佳方法，而Spring使从模型数据动态生成PDF文档或Excel电子表格变得简单。该文档是视图，并从服务器以正确的内容类型进行流传输，以（希望）使客户端PC能够运行其电子表格或PDF查看器应用程序作为响应。
+
+为了使用Excel视图，您需要将Apache POI库添加到您的类路径中。为了生成PDF，您需要添加（最好是）OpenPDF库。
+
+> 如果可能，您应该使用基础文档生成库的最新版本。特别是，我们强烈建议您使用OpenPDF（例如，OpenPDF 1.2.12）而不是过时的原始iText 2.1.7，因为OpenPDF会得到积极维护并修复了不可信任PDF内容的重要漏洞。
+
+**PDF 视图**
+
+可以扩展`org.springframework.web.servlet.view.document.AbstractPdfView` 并实现`buildPdfDocument()`方法：
+
+```java
+public class PdfWordList extends AbstractPdfView {
+
+    protected void buildPdfDocument(Map<String, Object> model, Document doc, PdfWriter writer,
+            HttpServletRequest request, HttpServletResponse response) throws Exception {
+
+        List<String> words = (List<String>) model.get("wordList");
+        for (String word : words) {
+            doc.add(new Paragraph(word));
+        }
+    }
+}
+```
+
+
+
+控制器可以从外部视图定义（按名称引用）返回此视图，也可以从处理程序方法返回为视图实例。
+
+
+
+**Excel视图**
+
+从Spring框架4.2开始，`org.springframework.web.servlet.view.documnet.AbstractXlsView`为Excel视图提供了基础类。它基于Apache POI，具有取代过时的特殊类（`AbstractXlsxView`和`AbstractXlsxStreamingView`）。
+
+
+
+编程模型类似于`AbstractPdfView`，其中`buildExcelDocument()`作为中央模板方法，控制器能够从外部定义（按名称）或从处理程序方法作为`View`实例返回这种视图。
+
+
+
+### 1.10.9. Jackson
+
+Spring提供对Jackson JSON库的支持。
+
+
+
+**基于Jackson的JSON MVC视图**
+
+`MappingJackson2JsonView`使用Jackson库的`ObjectMapper`将JSON作为响应内容呈现。默认情况下，模型的整个内容映射的编码是JSON（拥有框架指定的异常类）。对于那些要滤映射内容的需求，可以通过使用`modelKeys`属性，指定一组特殊的模型属性来编码。也可以使用`extractValueFormSingleKeyModel`属性，将单键模型中的值提取并序列化，而不是作为模型属性的映射。
+
+
+
+可以使用Jackson提供的注解来自定义JSON映射。当需要更进一步的控制时，可以通过`ObjectMapper`属性注入一个自定义的`ObjectMapper`，为特殊类型提供自定义的JSON序列化和反序列化。
+
+
+
+**基于Jackson的XML视图**
+
+`MappingJackson2XmlView`使用Jackson XML的扩展`XmlMapper`将响应内容作为XML呈现。如果模型包含多个实体，应该通过使用`modelKey`明确设置被序列化的对象。如果模型包含单个实体，它会被自动序列化。
+
+
+
+可以通过使用JAXB或Jackson提供的注解，自定义XML映射。当需要更进一步的控制时，可以通过`ObjectMapper`属性注入一个自定义的`ObjectMapper`，为特殊类型提供自定义的XML序列化和反序列化。
+
+
+
+### 1.10.10. XML编组
+
+`MarshallingView`使用XML `Marshaller`（定义在`org.springframework.oxm`包中）将响应内容呈现为XML。可以使用`MarshallingView`实例的`modelKey`属性来明确设置需要编组的对象。或者，该视图遍历所有模型属性，并封送`Marshaller`支持的第一个类型。
+
+
+
+### 1.10.11. XSTL视图（略...）
+
+
+
+## 1.11. MVC配置
+
+MVC Java配置和MVC XML命名空间为大多数应用程序提供了默认适当的配置并为自定义配置提供了配置API。
+
+
+
+有关配置API中不可用的更多高级定制，请参阅Advanced Java Config和Advanced XML Config。
+
+
+
+不需要了解由MVC Java配置和MVC名称空间创建的基础bean。如果要了解更多信息，请参阅特殊Bean类型和Web MVC Config。
+
+
+
+### 1.11.1. 开启MVC配置
+
+在Java配置中，可以使用`@EnableWebMvc`注解来开启MVC配置：
+
+```java
+@Configuration
+@EnableWebMvc
+public class WebConfig {
+}
+```
+
+
+
+在XML配置中，可以使用`<mvc:annotation-driven>`元素来开启配置：
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+    xmlns:mvc="http://www.springframework.org/schema/mvc"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="
+        http://www.springframework.org/schema/beans
+        https://www.springframework.org/schema/beans/spring-beans.xsd
+        http://www.springframework.org/schema/mvc
+        https://www.springframework.org/schema/mvc/spring-mvc.xsd">
+
+    <mvc:annotation-driven/>
+
+</beans>
+
+```
+
+
+
+前面的例子注册了一系列的Spring MVC基础设施bean，并且在类路径上适配可用的依赖（如，对于payload的JSON，XML等转换器）。
+
+
+
+### 1.11.2. MVC配置API
+
+在Java配置中，可以实现`WebMvcConfigurer`接口：
+
+```java
+@Configuration
+@EnableWebMvc
+public class WebConfig implements WebMvcConfigurer {
+
+    // Implement configuration methods...
+}
+```
+
+在XML中，可以检查`<mvc:annotation-driven/>`的属性和子元素。可以查看Spring MVC XML Schema或使用IDE的代码完成功能来发现可用的属性可子元素。
+
+
+
+### 1.11.3. 类型转换
+
+默认情况下，安装了多种数字和日期的格式化器，以及为自定义字段提供了`@NumberFormat`和`DateTimeFormat`。
+
+
+
+为了在Java配置中注册自定义的格式化器和转换器，需要如下配置：
+
+```java
+@Configuration
+@EnableWebMvc
+public class WebConfig implements WebMvcConfigurer {
+
+    @Override
+    public void addFormatters(FormatterRegistry registry) {
+        // ...
+    }
+}
+```
+
+
+
+使用如下XML配置可以得到相同的效果：
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+    xmlns:mvc="http://www.springframework.org/schema/mvc"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="
+        http://www.springframework.org/schema/beans
+        https://www.springframework.org/schema/beans/spring-beans.xsd
+        http://www.springframework.org/schema/mvc
+        https://www.springframework.org/schema/mvc/spring-mvc.xsd">
+
+    <mvc:annotation-driven conversion-service="conversionService"/>
+
+    <bean id="conversionService"
+            class="org.springframework.format.support.FormattingConversionServiceFactoryBean">
+        <property name="converters">
+            <set>
+                <bean class="org.example.MyConverter"/>
+            </set>
+        </property>
+        <property name="formatters">
+            <set>
+                <bean class="org.example.MyFormatter"/>
+                <bean class="org.example.MyAnnotationFormatterFactory"/>
+            </set>
+        </property>
+        <property name="formatterRegistrars">
+            <set>
+                <bean class="org.example.MyFormatterRegistrar"/>
+            </set>
+        </property>
+    </bean>
+
+</beans>
+```
+
+
+
+默认情况下，Spring MVC考虑了本地语言环境的请求解析和格式化日志值。这适用于使用“输入”表单字段将日期表示为字符串的表单。但是，对于“日期”和“时间”表单字段，浏览器使用HTML规范中定义的固定格式。在这种情况下，日期和时间格式可以按以下方式自定义：
+
+```java
+@Configuration
+@EnableWebMvc
+public class WebConfig implements WebMvcConfigurer {
+
+    @Override
+    public void addFormatters(FormatterRegistry registry) {
+        DateTimeFormatterRegistrar registrar = new DateTimeFormatterRegistrar();
+        registrar.setUseIsoFormat(true);
+        registrar.registerFormatters(registry);
+    }
+}
+```
+
+
+
+### 1.11.4. 校验
+
+默认情况下，如果classpath（例如，Hibernate校验器）上存在bean校验，`LocalValidatorFactoryBean`会注册为全局校验器，使用`@Valid`和`Validated`在控制器方法参数上提供校验。
+
+
+
+在Java配置中，可以自定义全局`Validator`实例：
+
+```java
+@Configuration
+@EnableWebMvc
+public class WebConfig implements WebMvcConfigurer {
+
+    @Override
+    public Validator getValidator() {
+        // ...
+    }
+}
+```
+
+
+
+使用XML可以完成相同的工作：
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+    xmlns:mvc="http://www.springframework.org/schema/mvc"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="
+        http://www.springframework.org/schema/beans
+        https://www.springframework.org/schema/beans/spring-beans.xsd
+        http://www.springframework.org/schema/mvc
+        https://www.springframework.org/schema/mvc/spring-mvc.xsd">
+
+    <mvc:annotation-driven validator="globalValidator"/>
+
+</beans>
+```
+
+
+
+注意，也可以在本地注册一个`Validator`实现：
+
+```java
+@Controller
+public class MyController {
+
+    @InitBinder
+    protected void initBinder(WebDataBinder binder) {
+        binder.addValidators(new FooValidator());
+    }
+}
+```
+
+> 如果需要在某个地方注入`LocalValidatorFactoryBean`，请创建一个bean并用`@Primary`进行标记，以避免与MVC配置中声明的那个冲突。
+
+
+
+### 1.11.5. 拦截器
+
+在Java配置中，可以注册拦截器并应用于请求：
+
+```java
+@Configuration
+@EnableWebMvc
+public class WebConfig implements WebMvcConfigurer {
+
+    @Override
+    public void addInterceptors(InterceptorRegistry registry) {
+        registry.addInterceptor(new LocaleChangeInterceptor());
+        registry.addInterceptor(new ThemeChangeInterceptor()).addPathPatterns("/**").excludePathPatterns("/admin/**");
+        registry.addInterceptor(new SecurityInterceptor()).addPathPatterns("/secure/*");
+    }
+}
+```
+
+
+
+使用下面的XML配置可以达到相同效果：
+
+```xml
+<mvc:interceptors>
+    <bean class="org.springframework.web.servlet.i18n.LocaleChangeInterceptor"/>
+    <mvc:interceptor>
+        <mvc:mapping path="/**"/>
+        <mvc:exclude-mapping path="/admin/**"/>
+        <bean class="org.springframework.web.servlet.theme.ThemeChangeInterceptor"/>
+    </mvc:interceptor>
+    <mvc:interceptor>
+        <mvc:mapping path="/secure/*"/>
+        <bean class="org.example.SecurityInterceptor"/>
+    </mvc:interceptor>
+</mvc:interceptors>
+```
+
+
+
+### 1.11.6. 内容类型
+
+可以通过配置，让Spring MVC决定来自请求的媒体类型（例如，`Accept`头，URL路径扩展，查询参数等等）。
+
+
+
+默认情况下，首先检查URL路径扩展名-将`json`，`xml`，`rss`和`atom`注册为已知扩展名（取决于类路径依赖项）。其次检查`Accept`头。
+
+
+
+考虑将这些默认值更改为“Accept”头，并且，如果必须使用基于URL的内容类型解析，请考虑对路径扩展使用查询参数策略。有关更多详细信息，请参见后缀匹配和后缀匹配以及RFD。
+
+
+
+在Java配置中，可以自定义请求的内容类型解析，如以下示例所示：
+
+```java
+@Configuration
+@EnableWebMvc
+public class WebConfig implements WebMvcConfigurer {
+
+    @Override
+    public void configureContentNegotiation(ContentNegotiationConfigurer configurer) {
+        configurer.mediaType("json", MediaType.APPLICATION_JSON);
+        configurer.mediaType("xml", MediaType.APPLICATION_XML);
+    }
+}
+```
+
+
+
+以下示例显示了如何在XML中实现相同的配置：
+
+```xml
+<mvc:annotation-driven content-negotiation-manager="contentNegotiationManager"/>
+
+<bean id="contentNegotiationManager" class="org.springframework.web.accept.ContentNegotiationManagerFactoryBean">
+    <property name="mediaTypes">
+        <value>
+            json=application/json
+            xml=application/xml
+        </value>
+    </property>
+</bean>
+```
+
+
+
+### 1.11.7. 消息转换器
+
+在Java配置中，通过覆盖`configureMessageConverters()`（替换通过Spring MVC创建的默认转换器）或`extendMessageConverters()`（自定义默认转换器或将附加的转换器加入到默认转换器中）来自定义`HttpMessageConverter`。
+
+
+
+下面的例子通过使用`ObjectMapper`来增加XML和Jackson JSON转换器，用来代替默认转换器：
+
+```java
+@Configuration
+@EnableWebMvc
+public class WebConfiguration implements WebMvcConfigurer {
+
+    @Override
+    public void configureMessageConverters(List<HttpMessageConverter<?>> converters) {
+        Jackson2ObjectMapperBuilder builder = new Jackson2ObjectMapperBuilder()
+                .indentOutput(true)
+                .dateFormat(new SimpleDateFormat("yyyy-MM-dd"))
+                .modulesToInstall(new ParameterNamesModule());
+        converters.add(new MappingJackson2HttpMessageConverter(builder.build()));
+        converters.add(new MappingJackson2XmlHttpMessageConverter(builder.createXmlMapper(true).build()));
+    }
+}
+```
+
+
+
+在前面的例子中,`Jackson2ObjectMapperBuilder`是用来创建一个通用配置`MappingJackson2HttpMessageConverter`和`MappingJackson2XmlHttpMessageConverter`启用了缩进,一个定制的日期格式,和jackson-module-parameter-names注册,这增加了支持访问参数名称(功能添加到Java 8)。
+
+
+
+这个建造者自定义了Jackson的默认属性，如下：
+
+* 禁用[`DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES`](https://fasterxml.github.io/jackson-databind/javadoc/2.6/com/fasterxml/jackson/databind/DeserializationFeature.html#FAIL_ON_UNKNOWN_PROPERTIES)
+
+* 禁用[`MapperFeature.DEFAULT_VIEW_INCLUSION`](https://fasterxml.github.io/jackson-databind/javadoc/2.6/com/fasterxml/jackson/databind/MapperFeature.html#DEFAULT_VIEW_INCLUSION)
+
+
+
+如果在classpath中检测到以下模块，它将自动注册以下模块：
+
+* [jackson-datatype-joda](https://github.com/FasterXML/jackson-datatype-joda)：支持Joda时间类型
+
+* [jackson-datatype-jsr310](https://github.com/FasterXML/jackson-datatype-jsr310)：支持Java 8日志和时间API类型
+
+* [jackson-datatype-jdk8](https://github.com/FasterXML/jackson-datatype-jdk8)：支持其他Java 8类型，例如`Optional`
+
+* [`jackson-module-kotlin`](https://github.com/FasterXML/jackson-module-kotlin)： 支持Kotlin类和日志类
+
+
+
+其他可用的Jackson模块是：
+
+* [jackson-datatype-money](https://github.com/zalando/jackson-datatype-money)：支持`javax.money`类型（非官方模块）
+
+* [jackson-datatype-hibernate](https://github.com/FasterXML/jackson-datatype-hibernate)：支持Hibernate特定的类型和属性（包括惰性加载切面）
+
+
+
+下面的例子展示了如何使用XML来完成相同的配置：
+
+```xml
+<mvc:annotation-driven>
+    <mvc:message-converters>
+        <bean class="org.springframework.http.converter.json.MappingJackson2HttpMessageConverter">
+            <property name="objectMapper" ref="objectMapper"/>
+        </bean>
+        <bean class="org.springframework.http.converter.xml.MappingJackson2XmlHttpMessageConverter">
+            <property name="objectMapper" ref="xmlMapper"/>
+        </bean>
+    </mvc:message-converters>
+</mvc:annotation-driven>
+
+<bean id="objectMapper" class="org.springframework.http.converter.json.Jackson2ObjectMapperFactoryBean"
+      p:indentOutput="true"
+      p:simpleDateFormat="yyyy-MM-dd"
+      p:modulesToInstall="com.fasterxml.jackson.module.paramnames.ParameterNamesModule"/>
+
+<bean id="xmlMapper" parent="objectMapper" p:createXmlMapper="true"/>
+```
+
+
+
+### 1.11.8. 视图控制器
+
+这是定义`ParameterizableViewController`的快捷方式，它在被调用时立即转发给视图。当视图生成响应之前没有Java控制器逻辑要运行时，可以在静态情况下使用它。
+
+
+
+下面的Java配置示例将对`/`的请求转发给一个名为`home`的视图:
+
+```java
+@Configuration
+@EnableWebMvc
+public class WebConfig implements WebMvcConfigurer {
+
+    @Override
+    public void addViewControllers(ViewControllerRegistry registry) {
+        registry.addViewController("/").setViewName("home");
+    }
+}
+```
+
+
+
+通过使用`<mvc:view-controller>`元素来完成相同的工作：
+
+```xml
+<mvc:view-controller path="/" view-name="home"/>
+```
+
+如果`@RequestMapping`方法映射到任何HTTP方法的URL，则视图控制器不能用于处理相同的URL。这是因为通过URL匹配带注释的控制器被认为是端点所有权的足够强的指示，因此可以向客户机发送405 (METHOD_NOT_ALLOWED)、415 (UNSUPPORTED_MEDIA_TYPE)或类似的响应，以帮助进行调试。因此，建议避免在带注释的控制器和视图控制器之间拆分URL处理。
+
+
+
+### 1.11.9. 视图解析
+
+MVC配置简化了视图解析器的注册。
+
+
+
+以下Java配置示例通过使用JSP和Jackson作为JSON呈现的默认视图来配置内容协商视图解析：
+
+```java
+Configuration
+@EnableWebMvc
+public class WebConfig implements WebMvcConfigurer {
+
+    @Override
+    public void configureViewResolvers(ViewResolverRegistry registry) {
+        registry.enableContentNegotiation(new MappingJackson2JsonView());
+        registry.jsp();
+    }
+}
+```
+
+
+
+使用XML配置：
+
+```xml
+<mvc:view-resolvers>
+    <mvc:content-negotiation>
+        <mvc:default-views>
+            <bean class="org.springframework.web.servlet.view.json.MappingJackson2JsonView"/>
+        </mvc:default-views>
+    </mvc:content-negotiation>
+    <mvc:jsp/>
+</mvc:view-resolvers>
+```
+
+
+
+但是请注意，FreeMarker、tile、Groovy标记和脚本模板也需要底层视图技术的配置。
+
+
+
+MVC命名空间提供了专用元素。以下示例适用于FreeMarker：
+
+```xml
+<mvc:view-resolvers>
+    <mvc:content-negotiation>
+        <mvc:default-views>
+            <bean class="org.springframework.web.servlet.view.json.MappingJackson2JsonView"/>
+        </mvc:default-views>
+    </mvc:content-negotiation>
+    <mvc:freemarker cache="false"/>
+</mvc:view-resolvers>
+
+<mvc:freemarker-configurer>
+    <mvc:template-loader-path location="/freemarker"/>
+```
+
+
+
+在Java配置中，可以相应的bean：
+
+```java
+@Configuration
+@EnableWebMvc
+public class WebConfig implements WebMvcConfigurer {
+
+    @Override
+    public void configureViewResolvers(ViewResolverRegistry registry) {
+        registry.enableContentNegotiation(new MappingJackson2JsonView());
+        registry.freeMarker().cache(false);
+    }
+
+    @Bean
+    public FreeMarkerConfigurer freeMarkerConfigurer() {
+        FreeMarkerConfigurer configurer = new FreeMarkerConfigurer();
+        configurer.setTemplateLoaderPath("/freemarker");
+        return configurer;
+    }
+}
+```
+
+
+
+### 1.11.10. 静态资源（略...）
+
+### 1.11.11. 默认Servlet（略...）
+
+### 1.11.12. Path匹配（略...）
+
+### 1.11.13. 高级Java配置（略...）
+
+### 1.11.14. 高级XML配置（略...）
+
+
+
+## 1.12. HTTP/2（略...）
