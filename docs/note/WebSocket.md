@@ -172,3 +172,226 @@ public class WebSocketConfig implements WebSocketConfigurer {
 
 
 直接或间接使用`WebSocketHandler` API时，例如通过STOMP消息传递，由于基础标准WebSocket会话（JSR-356）不允许并发发送，因此应用程序必须同步消息的发送。一种选择是用`ConcurrentWebSocketSessionDecorator`包装WebSocketSession。
+
+
+
+### 4.2.2. WebSocket握手
+
+自定义初始化HTTP WebSocket握手请求的最简单方式是通过`HandShakeInterceptor`，它为握手公开了"before"和"after"方法。可以使用这样的拦截器来阻止握手或使任何属性对`WebSocketSession`可用。下面的例子使用内置的拦截器来传递HTTP session属性到WebSocket session：
+
+```java
+@Configuration
+@EnableWebSocket
+public class WebSocketConfig implements WebSocketConfigurer {
+
+    @Override
+    public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
+        registry.addHandler(new MyHandler(), "/myHandler")
+            .addInterceptors(new HttpSessionHandshakeInterceptor());
+    }
+
+}
+```
+
+
+
+接下来的例子使用XML配置达到与前面例子相同的效果：
+
+```xml
+<beans xmlns="http://www.springframework.org/schema/beans"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns:websocket="http://www.springframework.org/schema/websocket"
+    xsi:schemaLocation="
+        http://www.springframework.org/schema/beans
+        https://www.springframework.org/schema/beans/spring-beans.xsd
+        http://www.springframework.org/schema/websocket
+        https://www.springframework.org/schema/websocket/spring-websocket.xsd">
+
+    <websocket:handlers>
+        <websocket:mapping path="/myHandler" handler="myHandler"/>
+        <websocket:handshake-interceptors>
+            <bean class="org.springframework.web.socket.server.support.HttpSessionHandshakeInterceptor"/>
+        </websocket:handshake-interceptors>
+    </websocket:handlers>
+
+    <bean id="myHandler" class="org.springframework.samples.MyHandler"/>
+
+</beans>
+```
+
+
+
+更多高级选项需要扩展`DefaultHandshakeHandler`，它执行WebSocket握手的步骤，包括验证客户端源，协商子协议以及其他细节。应用程序如果需要配置自定义的`RequestUpgradeStrategy`，来适配尚未支持的WebSocket服务器引擎和版本，则可能需要使用此选项。Java配置和XML名称空间都使配置自定义`HandshakeHandler`成为可能。
+
+> Spring提供一个`WebSocketHandlerDecorator`基类，让用户使用它来装饰带有附加行为的`WebSocketHandler`。当使用WebSocket Java配置或XML命名空间时，默认情况下会提供和添加日志和异常处理实现。`ExceptionWebSocketHandlerDecorator`捕获由任何`WebsocketHandler`方法引起的所有未捕获的异常，并关闭状态为1011（指示服务器错误）的WebSocket会话。
+
+
+
+### 4.2.3. 部署
+
+Spring WebSocket API可以简单地集成到Spring MVC应用程序中，`DispatcherServlet`可以为HTTP WebSocket握手和其他HTTP请求提供服务。它也可以很容易地通过调用`WebSocketHttpRequestHandler`集成在其他HTTP处理场景中。这非常便捷并容易理解。但是，对于JSR-356运行时，有一些特殊的考虑。
+
+
+
+Java WebSocket API（JSR-356）提供两种部署机制。首先在启动时，调用Servlet容器classpath扫描（Servlet 3功能）。然后注册API使用Servlet容器初始化。这两种机制都无法对使用单个“前端控制器”处理所有HTTP请求（包括WebSocket握手和所有其他HTTP请求，例如Spring MVC的`DispatcherServlet`）。
+
+
+
+这是JSR-356非常重要的限制，Spring的WebSocket支持使用特定于服务器的`RequestUpgradeStrategy`实现来解决这个问题，即使在JSR-356运行时也不例外。Tomcat，Jetty，GlassFish，WebLogic，WebSphere和Undertow（以及WildFly）目前存在此类策略。
+
+> 已经创建了克服Java WebSocket API中的上述限制的请求，可以在eclipse-ee4j / websocket-api＃211中进行跟踪。Tomcat，Undertow和WebSphere提供了自己的API替代方案，使之可以做到这一点，而Jetty也可以实现。我们希望更多的服务器可以做到这一点。
+
+
+
+另一个要考虑的因素是，期望支持JSR-356的Servlet容器执行`ServletContainerInitializer`（SCI）扫描，这可能会减慢应用程序的启动速度。如果在升级到支持JSR-356的Servlet容器版本后观察到重大影响，那么应该可以通过使用web中的`<absolute-order/>`元素有选择地启用或禁用web片段(和SCI扫描)。xml，如下例所示:
+
+```xml
+<web-app xmlns="http://java.sun.com/xml/ns/javaee"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="
+        http://java.sun.com/xml/ns/javaee
+        https://java.sun.com/xml/ns/javaee/web-app_3_0.xsd"
+    version="3.0">
+
+    <absolute-ordering/>
+
+</web-app>
+```
+
+
+
+然后，可以按名称选择性地启用Web片段，例如，Spring的`SpringServletContainerInitializer`，它提供对Servlet 3 Java初始化API的支持：
+
+```xml
+<web-app xmlns="http://java.sun.com/xml/ns/javaee"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="
+        http://java.sun.com/xml/ns/javaee
+        https://java.sun.com/xml/ns/javaee/web-app_3_0.xsd"
+    version="3.0">
+
+    <absolute-ordering>
+        <name>spring_web</name>
+    </absolute-ordering>
+
+</web-app>
+```
+
+
+
+### 4.2.4. 服务器配置
+
+每个底层WebSocket引擎公开了配置属性，以便控制运行时特性，例如消息缓冲的大小，空闲超时时间等。
+
+
+
+对于Tomcat, WildFly, and GlassFish,可以增加`SrvletServerContainerFactoryBean`到WebSocket Java配置中：
+
+```java
+@Configuration
+@EnableWebSocket
+public class WebSocketConfig implements WebSocketConfigurer {
+
+    @Bean
+    public ServletServerContainerFactoryBean createWebSocketContainer() {
+        ServletServerContainerFactoryBean container = new ServletServerContainerFactoryBean();
+        container.setMaxTextMessageBufferSize(8192);
+        container.setMaxBinaryMessageBufferSize(8192);
+        return container;
+    }
+
+}
+```
+
+
+
+也可以使用XML配置来完成：
+
+```xml
+<beans xmlns="http://www.springframework.org/schema/beans"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns:websocket="http://www.springframework.org/schema/websocket"
+    xsi:schemaLocation="
+        http://www.springframework.org/schema/beans
+        https://www.springframework.org/schema/beans/spring-beans.xsd
+        http://www.springframework.org/schema/websocket
+        https://www.springframework.org/schema/websocket/spring-websocket.xsd">
+
+    <bean class="org.springframework...ServletServerContainerFactoryBean">
+        <property name="maxTextMessageBufferSize" value="8192"/>
+        <property name="maxBinaryMessageBufferSize" value="8192"/>
+    </bean>
+
+</beans>
+```
+
+> 对于客户端WebSocket配置，应该使用`WebSocketContainerFacotyrBean`（XML）或`ContainerProvider.getWebSocketContainer()`（Java 配置）。
+
+
+
+### 4.2.5. 允许的来源
+
+Spring框架4.1.5以后，WebSocket和SockJS的默认行为只能接受同源请求。它也可以允许所有源或指定列表的源。这个检查主要是为浏览器客户端设计的。没有任何措施可以阻止其他类型的客户端修改Origin头值（有关更多详细信息，请参阅RFC 6454：Web Origin概念）。
+
+
+
+三种可能的行为是：
+
+* 仅允许同源请求（默认）：在这种模式下，当开启SockJS时，Iframe HTTP响应头`X-Frame-Options`设置为`SAMEORIGIN`，并且`JSONP`禁止传输，因为它不允许检查请求的来源。因此，启用该模式时，IE6和IE7不支持。
+
+* 允许指定源列表：每个被允许的源必须以`http://`或`https://`开头。在这种模式下，当开启SockJS时，IFrame传输被禁用。因此，该模式下不支持IE6到IE9。
+
+* 允许所有源：开启这个模式后，应该提供`*`作为允许的来源值。在这个模式下，所有传输都是可用的。
+
+
+
+可以配置WebSocket和SockJS允许的源：
+
+```java
+import org.springframework.web.socket.config.annotation.EnableWebSocket;
+import org.springframework.web.socket.config.annotation.WebSocketConfigurer;
+import org.springframework.web.socket.config.annotation.WebSocketHandlerRegistry;
+
+@Configuration
+@EnableWebSocket
+public class WebSocketConfig implements WebSocketConfigurer {
+
+    @Override
+    public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
+        registry.addHandler(myHandler(), "/myHandler").setAllowedOrigins("https://mydomain.com");
+    }
+
+    @Bean
+    public WebSocketHandler myHandler() {
+        return new MyHandler();
+    }
+
+}
+```
+
+
+
+下面的XML配置与前面的例子等效：
+
+```xml
+<beans xmlns="http://www.springframework.org/schema/beans"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns:websocket="http://www.springframework.org/schema/websocket"
+    xsi:schemaLocation="
+        http://www.springframework.org/schema/beans
+        https://www.springframework.org/schema/beans/spring-beans.xsd
+        http://www.springframework.org/schema/websocket
+        https://www.springframework.org/schema/websocket/spring-websocket.xsd">
+
+    <websocket:handlers allowed-origins="https://mydomain.com">
+        <websocket:mapping path="/myHandler" handler="myHandler" />
+    </websocket:handlers>
+
+    <bean id="myHandler" class="org.springframework.samples.MyHandler"/>
+
+</beans>
+```
+
+
+
+
