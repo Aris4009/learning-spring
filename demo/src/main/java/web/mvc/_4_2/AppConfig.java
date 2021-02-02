@@ -1,36 +1,34 @@
 package web.mvc._4_2;
 
-import org.springframework.context.annotation.Bean;
+import org.apache.catalina.LifecycleException;
+import org.apache.catalina.startup.Tomcat;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.web.socket.WebSocketHandler;
+import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 import org.springframework.web.socket.config.annotation.EnableWebSocket;
-import org.springframework.web.socket.config.annotation.WebSocketConfigurer;
-import org.springframework.web.socket.config.annotation.WebSocketHandlerRegistry;
-import org.springframework.web.socket.server.HandshakeInterceptor;
-import org.springframework.web.socket.server.support.HttpSessionHandshakeInterceptor;
 
 @Configuration
+@ComponentScan
 @EnableWebSocket
-public class AppConfig implements WebSocketConfigurer {
+@EnableWebMvc
+public class AppConfig {
 
-	@Bean
-	public WebSocketHandler webSocketHandler() {
-		return new MyHandler();
-	}
+	private static final Logger log = LoggerFactory.getLogger(AppConfig.class);
 
-	@Bean
-	public HandshakeInterceptor handshakeInterceptor() {
-		return new MyInterceptor();
-	}
+	public static void main(String[] args) {
+		try {
+			Tomcat tomcat = new Tomcat();
+			tomcat.setPort(9999);
 
-	@Bean
-	public HandshakeInterceptor httpHandshakeInterceptor() {
-		return new HttpSessionHandshakeInterceptor();
-	}
+			String baseDir = "/Users/aris/idea-workspace/learning-spring/demo/target/classes/web/mvc/_4_2";
+			tomcat.addWebapp("", baseDir);
 
-	@Override
-	public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
-		registry.addHandler(webSocketHandler(), "/myHandler")
-				.addInterceptors(handshakeInterceptor(), httpHandshakeInterceptor()).setAllowedOrigins("*");
+			tomcat.start();
+			tomcat.getServer().await();
+		} catch (LifecycleException e) {
+			log.error(e.getMessage(), e);
+		}
 	}
 }

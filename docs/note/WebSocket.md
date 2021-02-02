@@ -394,4 +394,120 @@ public class WebSocketConfig implements WebSocketConfigurer {
 
 
 
+## 4.3. 回退SockJS
 
+在公共互联网上，控件外部的局限性代理可能会组织WebSocket交互，这可能是因为未将他们配置为传递`Upgrade`头，或者是因为他们关闭了长期处于空闲状态的连接。
+
+
+
+解决此问题的方法是模拟WebSocket，即先尝试使用WebSocket，然后再尝试使用基于HTTP的技术来模拟WebSocket交互并公开相同的应用程序级API。
+
+
+
+在Servlet堆栈上，Spring框架为SockJS协议提供服务器（和客户端）支持。
+
+
+
+### 4.3.1. 概述
+
+SockJS的目标是，让应用程序使用WebSocket API，在运行时回退到非WebSocket而无需改变应用程序代码。
+
+
+
+SockJS包括：
+
+* SockJS协议以可执行叙述测试的形式定义
+
+* SockJS JavaScript客户端-在浏览器中使用的客户端库
+
+* SockJS服务器实现，包括Spring框架`spring-websocket`模块中的一个。
+
+* 在`spring-websocket`中的SockJS Java客户端（4.1版本以后）。
+
+
+
+SockJS为浏览器使用设计。它使用多种技术来支持广泛的浏览器版本。对于所有列出的SocketJS传输类型和浏览器，请参考SockJS client。传输分为三类：WebSocket，HTTP流和HTTP长轮询。对于分类的概述，请参考[this blog post](https://spring.io/blog/2012/05/08/spring-mvc-3-2-preview-techniques-for-real-time-updates/)。
+
+
+
+SockJS客户端开始通过发送`GET /info`，从服务器获取基本信息。然后，它必须决定使用那种传输。如果可能，就使用WebSocket。如果不可用，在多数浏览器中，至少有一个HTTP流选项。如果也不可用，就使用HTTP长轮询。
+
+
+
+所有传输请求有如下URL结构：
+
+```http
+https://host:port/myApp/myEndpoint/{server-id}/{session-id}/{transport}
+```
+
+* `{server-id}`对于在集群中路由请求很有用，否则不使用
+
+* `{session-id}`关联属于SockJS会话的HTTP请求
+
+* `{transport}`指示传输类型（例如，`websocket`，`xhr-streaming`等）
+
+
+
+WebSocket传输仅需要单个HTTP请求即可进行WebSocket握手。此后所有消息在该套接字上交换。
+
+
+
+HTTP传输需要更多请求。例如，Ajax/XHR流依赖于服务器到客户端消息的一个长时间运行的请求，以及对客户端到服务器消息的其他HTTP POST请求。长轮询类似，不同支出在于长轮询在每次服务器到客户端发送后结束当前请求。
+
+
+
+SockJS增加了少量的消息帧：例如，服务器发送字母`o`（“open” frame）初始化，发送的消息为`a["message1","message2"]`（JSON编码的数组），字母`h`（"heartbeat" frame），如果在25秒（默认）中没有任何消息，字母`c`（"close" frame）来关闭会话。
+
+
+
+如果想要了解更多，需要将例子运行在浏览器中以便观察HTTP请求。SockJS客户端允许固定传输列表，因此可以一次查看每个传输。SockJS客户端也提供debug标志位，开启后可以帮助了解在浏览器控制台中的消息。在服务器端，可以开启`TRACE`日志。
+
+
+
+### 4.3.2. 开启SockJS
+
+可以通过Java配置开启SockJS：
+
+```java
+@Configuration
+@EnableWebSocket
+public class WebSocketConfig implements WebSocketConfigurer {
+
+    @Override
+    public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
+        registry.addHandler(myHandler(), "/myHandler").withSockJS();
+    }
+
+    @Bean
+    public WebSocketHandler myHandler() {
+        return new MyHandler();
+    }
+
+}
+```
+
+
+
+下面的例子使用XML可以达到相同配置：
+
+```xml
+<beans xmlns="http://www.springframework.org/schema/beans"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns:websocket="http://www.springframework.org/schema/websocket"
+    xsi:schemaLocation="
+        http://www.springframework.org/schema/beans
+        https://www.springframework.org/schema/beans/spring-beans.xsd
+        http://www.springframework.org/schema/websocket
+        https://www.springframework.org/schema/websocket/spring-websocket.xsd">
+
+    <websocket:handlers>
+        <websocket:mapping path="/myHandler" handler="myHandler"/>
+        <websocket:sockjs/>
+    </websocket:handlers>
+
+    <bean id="myHandler" class="org.springframework.samples.MyHandler"/>
+
+</beans>
+```
+
+前面的例子在Spring MVC应用程序中使用，应该包含`DispatcherServlet`配置。
