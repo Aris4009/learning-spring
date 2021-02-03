@@ -2,13 +2,9 @@
 
 这部分参考文档涵盖了支持的Servlet栈，WebSocket消息包括原始WebSocket集成，通过SockJS进行WebSocket模拟，以及通过STOMP的发布订阅消息传递作为WebSocket上的子协议。
 
-
-
 ## 4.1. 介绍
 
 WebSocket协议，RFC 6455，提供一个标准化的方式，可以通过单个TCP连接在客户端和服务端之间建立全双工双向通信通道。它是与HTTP不同的TCP协议，但旨在通过端口80和443在HTTP上工作，并允许重复使用现有的防火墙规则。
-
-
 
 WebSocket交互始于一个HTTP请求，该请求使用HTTP `Upgrade`头进行升级或者在这种情况下切换到WebSocket协议：
 
@@ -27,8 +23,6 @@ Origin: http://localhost:8080
 
 <mark>2 </mark>使用`Upgrade`连接
 
-
-
 具有WebSocket支持的服务器代替通常的200状态代码，返回类似于以下内容的输出：
 
 ```http
@@ -41,65 +35,37 @@ Sec-WebSocket-Protocol: v10.stomp
 
 <mark>1 </mark>协议切换
 
-
-
 在成功握手后，HTTP升级请求的底层TCP socket将保持打开状态，客户端和服务器均可继续发送和接受消息。
-
-
 
 WebSocket的完整工作流程超越了本文档的范围。请参考RFC 6455,HTML5的WebSocket章节或有关Web的介绍和教程。
 
-
-
 注意，如果WebSocket服务器运行在一个web服务器后（例如，nginx），可能需要配置它来传递WebSocket升级请求到WebSocket服务器。同样，如果应用程序在云环境中运行，请检查与WebSocket支持相关的云提供商的说明。
-
-
 
 ### 4.1.1. HTTP对比WebSocket
 
 尽管WebSocket被设计为与HTTP兼容并以HTTP请求开头，但重要的是了解这两个协议导致 截然不同的体系结构和应用程序编程模型。
 
-
-
 在HTTP和REST中，应用程序被建模为许多URL。为了与应用程序交互，客户端通过请求-应答的方式访问这些URL。服务器根据HTTP URL，方法和头将请求路由到适当的处理程序。
-
-
 
 相比，在WebSocket中，初始连接通常只有一个URL。随后，所有应用程序消息都在同一个TCP连接上流动。这指向了一个完全不同的异步，事件驱动的消息传递体系结构。
 
-
-
 WebSocket与HTTP不同，它是一个低层传输协议，没有为消息的内容规定任何语义。这意味着除非客户端和服务器就消息语义达成一致，否则就无法路由或处理消息。
 
-
-
 WebSocket客户端和服务器可以通过HTTP握手请求上的`Sec-WebSocket-Protocol`头写上使用更高级别的消息传递协议（例如STOMP）。在这种情况下，他们需要提出自己的约定。
-
-
 
 ### 4.1.2. 何时使用WebSockets
 
 WebSockets可以使web页面具有动态性和可交互性。但是，在多数情况下，Ajax和HTTP流或长轮询的结合可以提供一种简单有效的解决方案。
 
-
-
 例如，新闻，邮件和社交订阅源需要动态更新，但是每隔几分钟这样做可能是完全可以的。另一方面，协作、游戏和金融应用程序需要更接近实时性。
-
-
 
 仅延迟不是决定因素。如果消息量相对较低(例如，监视网络故障)，HTTP流或轮询可以提供有效的解决方案。低延迟、高频率和高容量的结合是WebSocket使用的最佳条件。
 
-
-
 记住，在Internet上，不受控制的限制性代理可能会阻止WebSocket交互，要么是因为它们没有被配置为传递升级报头，要么是因为它们关闭了看起来空闲的长时间连接。这意味着与面向公众的应用程序相比，将WebSocket用于防火墙内部的应用程序是一个更直接的决定。
-
-
 
 ## 4.2. WebSocket API
 
 Spring框架提供了WebSocket API，以便使用他们可以编写客户段和服务端的应用程序来处理WebSocket消息。
-
-
 
 ### 4.2.1. `WebSocketHandler`
 
@@ -144,8 +110,6 @@ public class WebSocketConfig implements WebSocketConfigurer {
 }
 ```
 
-
-
 下面使用XML配置可以与前面的例子达到相同效果：
 
 ```xml
@@ -169,11 +133,7 @@ public class WebSocketConfig implements WebSocketConfigurer {
 
 前面的示例是用于Spring MVC应用程序的，应该包含在DispatcherServlet的配置中。但是，Spring的WebSocket支持不依赖于Spring MVC。在WebSocketHttpRequestHandler的帮助下将`WebSocketHandler`集成到其他HTTP服务环境中相对简单。
 
-
-
 直接或间接使用`WebSocketHandler` API时，例如通过STOMP消息传递，由于基础标准WebSocket会话（JSR-356）不允许并发发送，因此应用程序必须同步消息的发送。一种选择是用`ConcurrentWebSocketSessionDecorator`包装WebSocketSession。
-
-
 
 ### 4.2.2. WebSocket握手
 
@@ -192,8 +152,6 @@ public class WebSocketConfig implements WebSocketConfigurer {
 
 }
 ```
-
-
 
 接下来的例子使用XML配置达到与前面例子相同的效果：
 
@@ -219,29 +177,19 @@ public class WebSocketConfig implements WebSocketConfigurer {
 </beans>
 ```
 
-
-
 更多高级选项需要扩展`DefaultHandshakeHandler`，它执行WebSocket握手的步骤，包括验证客户端源，协商子协议以及其他细节。应用程序如果需要配置自定义的`RequestUpgradeStrategy`，来适配尚未支持的WebSocket服务器引擎和版本，则可能需要使用此选项。Java配置和XML名称空间都使配置自定义`HandshakeHandler`成为可能。
 
 > Spring提供一个`WebSocketHandlerDecorator`基类，让用户使用它来装饰带有附加行为的`WebSocketHandler`。当使用WebSocket Java配置或XML命名空间时，默认情况下会提供和添加日志和异常处理实现。`ExceptionWebSocketHandlerDecorator`捕获由任何`WebsocketHandler`方法引起的所有未捕获的异常，并关闭状态为1011（指示服务器错误）的WebSocket会话。
-
-
 
 ### 4.2.3. 部署
 
 Spring WebSocket API可以简单地集成到Spring MVC应用程序中，`DispatcherServlet`可以为HTTP WebSocket握手和其他HTTP请求提供服务。它也可以很容易地通过调用`WebSocketHttpRequestHandler`集成在其他HTTP处理场景中。这非常便捷并容易理解。但是，对于JSR-356运行时，有一些特殊的考虑。
 
-
-
 Java WebSocket API（JSR-356）提供两种部署机制。首先在启动时，调用Servlet容器classpath扫描（Servlet 3功能）。然后注册API使用Servlet容器初始化。这两种机制都无法对使用单个“前端控制器”处理所有HTTP请求（包括WebSocket握手和所有其他HTTP请求，例如Spring MVC的`DispatcherServlet`）。
-
-
 
 这是JSR-356非常重要的限制，Spring的WebSocket支持使用特定于服务器的`RequestUpgradeStrategy`实现来解决这个问题，即使在JSR-356运行时也不例外。Tomcat，Jetty，GlassFish，WebLogic，WebSphere和Undertow（以及WildFly）目前存在此类策略。
 
 > 已经创建了克服Java WebSocket API中的上述限制的请求，可以在eclipse-ee4j / websocket-api＃211中进行跟踪。Tomcat，Undertow和WebSphere提供了自己的API替代方案，使之可以做到这一点，而Jetty也可以实现。我们希望更多的服务器可以做到这一点。
-
-
 
 另一个要考虑的因素是，期望支持JSR-356的Servlet容器执行`ServletContainerInitializer`（SCI）扫描，这可能会减慢应用程序的启动速度。如果在升级到支持JSR-356的Servlet容器版本后观察到重大影响，那么应该可以通过使用web中的`<absolute-order/>`元素有选择地启用或禁用web片段(和SCI扫描)。xml，如下例所示:
 
@@ -257,8 +205,6 @@ Java WebSocket API（JSR-356）提供两种部署机制。首先在启动时，�
 
 </web-app>
 ```
-
-
 
 然后，可以按名称选择性地启用Web片段，例如，Spring的`SpringServletContainerInitializer`，它提供对Servlet 3 Java初始化API的支持：
 
@@ -277,13 +223,9 @@ Java WebSocket API（JSR-356）提供两种部署机制。首先在启动时，�
 </web-app>
 ```
 
-
-
 ### 4.2.4. 服务器配置
 
 每个底层WebSocket引擎公开了配置属性，以便控制运行时特性，例如消息缓冲的大小，空闲超时时间等。
-
-
 
 对于Tomcat, WildFly, and GlassFish,可以增加`SrvletServerContainerFactoryBean`到WebSocket Java配置中：
 
@@ -302,8 +244,6 @@ public class WebSocketConfig implements WebSocketConfigurer {
 
 }
 ```
-
-
 
 也可以使用XML配置来完成：
 
@@ -327,13 +267,9 @@ public class WebSocketConfig implements WebSocketConfigurer {
 
 > 对于客户端WebSocket配置，应该使用`WebSocketContainerFacotyrBean`（XML）或`ContainerProvider.getWebSocketContainer()`（Java 配置）。
 
-
-
 ### 4.2.5. 允许的来源
 
 Spring框架4.1.5以后，WebSocket和SockJS的默认行为只能接受同源请求。它也可以允许所有源或指定列表的源。这个检查主要是为浏览器客户端设计的。没有任何措施可以阻止其他类型的客户端修改Origin头值（有关更多详细信息，请参阅RFC 6454：Web Origin概念）。
-
-
 
 三种可能的行为是：
 
@@ -342,8 +278,6 @@ Spring框架4.1.5以后，WebSocket和SockJS的默认行为只能接受同源请
 * 允许指定源列表：每个被允许的源必须以`http://`或`https://`开头。在这种模式下，当开启SockJS时，IFrame传输被禁用。因此，该模式下不支持IE6到IE9。
 
 * 允许所有源：开启这个模式后，应该提供`*`作为允许的来源值。在这个模式下，所有传输都是可用的。
-
-
 
 可以配置WebSocket和SockJS允许的源：
 
@@ -369,8 +303,6 @@ public class WebSocketConfig implements WebSocketConfigurer {
 }
 ```
 
-
-
 下面的XML配置与前面的例子等效：
 
 ```xml
@@ -392,27 +324,17 @@ public class WebSocketConfig implements WebSocketConfigurer {
 </beans>
 ```
 
-
-
 ## 4.3. 回退SockJS
 
 在公共互联网上，控件外部的局限性代理可能会组织WebSocket交互，这可能是因为未将他们配置为传递`Upgrade`头，或者是因为他们关闭了长期处于空闲状态的连接。
 
-
-
 解决此问题的方法是模拟WebSocket，即先尝试使用WebSocket，然后再尝试使用基于HTTP的技术来模拟WebSocket交互并公开相同的应用程序级API。
 
-
-
 在Servlet堆栈上，Spring框架为SockJS协议提供服务器（和客户端）支持。
-
-
 
 ### 4.3.1. 概述
 
 SockJS的目标是，让应用程序使用WebSocket API，在运行时回退到非WebSocket而无需改变应用程序代码。
-
-
 
 SockJS包括：
 
@@ -424,15 +346,9 @@ SockJS包括：
 
 * 在`spring-websocket`中的SockJS Java客户端（4.1版本以后）。
 
-
-
 SockJS为浏览器使用设计。它使用多种技术来支持广泛的浏览器版本。对于所有列出的SocketJS传输类型和浏览器，请参考SockJS client。传输分为三类：WebSocket，HTTP流和HTTP长轮询。对于分类的概述，请参考[this blog post](https://spring.io/blog/2012/05/08/spring-mvc-3-2-preview-techniques-for-real-time-updates/)。
 
-
-
 SockJS客户端开始通过发送`GET /info`，从服务器获取基本信息。然后，它必须决定使用那种传输。如果可能，就使用WebSocket。如果不可用，在多数浏览器中，至少有一个HTTP流选项。如果也不可用，就使用HTTP长轮询。
-
-
 
 所有传输请求有如下URL结构：
 
@@ -446,23 +362,13 @@ https://host:port/myApp/myEndpoint/{server-id}/{session-id}/{transport}
 
 * `{transport}`指示传输类型（例如，`websocket`，`xhr-streaming`等）
 
-
-
 WebSocket传输仅需要单个HTTP请求即可进行WebSocket握手。此后所有消息在该套接字上交换。
-
-
 
 HTTP传输需要更多请求。例如，Ajax/XHR流依赖于服务器到客户端消息的一个长时间运行的请求，以及对客户端到服务器消息的其他HTTP POST请求。长轮询类似，不同支出在于长轮询在每次服务器到客户端发送后结束当前请求。
 
-
-
 SockJS增加了少量的消息帧：例如，服务器发送字母`o`（“open” frame）初始化，发送的消息为`a["message1","message2"]`（JSON编码的数组），字母`h`（"heartbeat" frame），如果在25秒（默认）中没有任何消息，字母`c`（"close" frame）来关闭会话。
 
-
-
 如果想要了解更多，需要将例子运行在浏览器中以便观察HTTP请求。SockJS客户端允许固定传输列表，因此可以一次查看每个传输。SockJS客户端也提供debug标志位，开启后可以帮助了解在浏览器控制台中的消息。在服务器端，可以开启`TRACE`日志。
-
-
 
 ### 4.3.2. 开启SockJS
 
@@ -486,8 +392,6 @@ public class WebSocketConfig implements WebSocketConfigurer {
 }
 ```
 
-
-
 下面的例子使用XML可以达到相同配置：
 
 ```xml
@@ -510,4 +414,208 @@ public class WebSocketConfig implements WebSocketConfigurer {
 </beans>
 ```
 
-前面的例子在Spring MVC应用程序中使用，应该包含`DispatcherServlet`配置。
+前面的例子在Spring MVC应用程序中使用，应该包含`DispatcherServlet`配置。但是，Spring的WebSocket和SockJS支持不依赖于Spring MVC。在`WebSocketHttpRequestHander`的帮助下，将`SockJsHttpRequestHandler`集成到其他HTTP服务环境中相对简单。
+
+
+
+在浏览器端，应用程序可以使用`sockjs-client`（1.0x版本）。它模拟了W3C WebSocket API并且通过选择最佳传输项来连接服务器，具体取决于运行它的浏览器。参考[sockjs-client](https://github.com/sockjs/sockjs-client/)和浏览器支持的传输类型列表。客户端也可以提供一些配置选项，例如，指定包含哪种传输类型。
+
+
+
+### 4.3.3. IE 8和IE 9
+
+IE 8和IE 9仍然在使用。他们是使用SockJS的关键原因。本接涵盖了有关运行在这些浏览器的重要考虑。
+
+
+
+SockJS在IE 8和9中通过使用微软的`XDomainRequest`来支持Ajax/XHR流。他们可以跨域工作但是不支持cookie。Cookie通常对于Java应用程序来说是必不可少的。但是，因为SockJS可以与许多服务类型使用（不仅仅是Java），它需要了解是否支持cookie的问题。如果支持，SockJS客户端使用Ajax/XHR。否则，它依赖于基于iframe的技术。
+
+
+
+首先，来自SockJS客户单的`/info`请求是对信息的请求，它可能影响客户端选择传输类型。这些详细信息之一是服务器应用程序是否依赖Cookie（例如，出于身份验证目的或使用粘性会话进行群集）。Spring对SockJS的支持包括一个名为`sessionCookieNeeded`的属性。由于大多数Java应用程序都依赖`JSESSIONID` cookie，因此默认情况下启用该功能。如果应用程序不需要它，可以将此选项关闭，并且SockJS客户单应该在IE 8和9中选择`xdr-streaming`。
+
+
+
+如果不使用基于iframe的传输方式，记住浏览器可以通过设置HTTP响应头，将`X-Frame-Options`设置为`DENY`，`SAMEORIGIN`，或`ALLOW-FROM <origin>`，来指示浏览器阻止在指定的页面上使用iframe。这用于防止点击劫持[clickjacking](https://www.owasp.org/index.php/Clickjacking)。
+
+
+
+> Spring Security 3.2以后提供在每个响应上设置`X-Frame-Options`。默认情况下，Spring Security Java配置将它设置为`DENY`。在3.2中，Spring Security XML命名空间不能默认设置响应头，但是可以通过配置来设置。在将来的版本中，它可能会被默认设置。
+> 
+> 
+> 
+> 
+> 参考Spring Security文档中的[Default Security Headers](https://docs.spring.io/spring-security/site/docs/current/reference/htmlsingle/#headers)部分来获取有关如何配置`X-Frame-Oprions`头的更多细节。也可以参考[SEC-2501](https://jira.spring.io/browse/SEC-2501)来获取附加的背景知识。
+
+
+
+如果应用程序添加了`X-Frame-Options`响应头（它也应该被添加）并依赖基于iframe的传输，需要将响应头的值设置为`SAMEORIGIN`或`ALLOW-FROM <origin>`。Spring SockJS支持还需要知道SockJS客户端的位置，因为它从iframe中加载。默认情况下，iframe被设置为从CDN的位置下载SockJS。最好将此选项配置为使用与应用程序源相同的URL。
+
+
+
+下面的例子展示了这样的Java配置：
+
+```java
+@Configuration
+@EnableWebSocketMessageBroker
+public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
+
+    @Override
+    public void registerStompEndpoints(StompEndpointRegistry registry) {
+        registry.addEndpoint("/portfolio").withSockJS()
+                .setClientLibraryUrl("http://localhost:8080/myapp/js/sockjs-client.js");
+    }
+
+    // ...
+
+}
+```
+
+
+
+XM命名空间通过`<websocket:sockjs>`元素来提供相似选项。
+
+> 在初始开发时，开启SockJS客户端的`devel`模式，用来阻止浏览器中缓存的SockJS请求（像iframe），否则他们会被缓存。更多有关如何开启它请参考 [SockJS client](https://github.com/sockjs/sockjs-client/)。
+
+
+
+### 4.3.4. 心跳
+
+SockJS协议要求服务器发送心跳信息，以防止代理断定连接已经挂起。Spring SockJS配置有一个名为`heartbeatTIme`的属性，可以使用它来自定义心跳频率。默认情况下，假设连接上没有发送其他消息，心跳会在25秒后被发送。这个25秒的值符合以下IETF对公共Internet应用程序的建议。
+
+
+
+> 但在WebSocket和SockJS上使用STOMP时，如果STOMP客户端和服务端协商要交换心跳，则会禁用SockJS心跳。
+
+
+
+Spring SockJS也可以配置`TaskScheduler`来调度心跳任务。任务调度器由线程池支持，其默认设置基于可用处理器的数量。应该考虑根据特定需求自定义设置。
+
+
+
+### 4.3.5. 客户端断开连接
+
+ HTTP流和HTTP长轮询SockJS传输要求连接保持打开的时间比通常长。有关这些技术的概述，请参阅 [this blog post](https://spring.io/blog/2012/05/08/spring-mvc-3-2-preview-techniques-for-real-time-updates/)。
+
+
+
+在Servlet容器中，这是通过Servlet 3异步支持完成的，该支持允许退出Servlet容器线程，处理请求并继续写入另一个线程的响应。
+
+
+
+一个特定的问题是，Servlet API不会为已离开的客户端提供通知。参考[eclipse-ee4j/servlet-api#44](https://github.com/eclipse-ee4j/servlet-api/issues/44)。但是，Servlet容器在随后尝试写入响应时引发异常。由于Spring的SockJS服务支持服务器发送的心跳信号（默认情况下，每25秒发送一次），这意味着通常会在该时间段内（或更早，如果消息发送频率更高）检测到客户端断开连接。
+
+
+
+> 结果，会发生网络I/O失败，因为客户端已经断开连接，这可能会在日志中填充不必要的堆栈跟踪。Spring尽最大努力识别这种表示客户机断开连接(特定于每个服务器)的网络故障，并使用专用日志类别DISCONNECTED_CLIENT_LOG_CATEGORY(在AbstractSockJsSession中定义)记录最小的消息。如果需要查看堆栈跟踪，可以将该日志类别设置为TRACE。
+
+
+
+### 4.3.6. SockJS和跨域
+
+如果允许跨域请求，SockJS协议将跨域用于XHR流和轮询传输中的跨域支持。因此，跨域头会自动添加，除非检测到响应中存在CORS头。因此，如果应用程序如果已经配置 提供跨域的支持（例如，通过Servlet Filter），Spring的`SockJsService`会跳过这部分。
+
+
+
+也可以通过在Spring的SockJsService中设置`suppressCors`来禁用附加的跨域头。
+
+
+
+SockJS期望下列头和值：
+
+* `Access-Control-Allow-Origin`：从`Origin`请求头中初始化值。
+
+* `Access-Control-Allow-Credentials`：总是设置为`true`。
+
+* `Access-Control-Request-Headers`：从等效请求头中的值初始化。
+
+* `Access-Control-Allow-Methods`：传输支持的HTTP方法（请参见`TransportType`枚举）。
+
+* `Access-Control-Max-Age`：设置为31536000（1年）。
+
+
+
+对于额外的信息，参考在`AbstractSockJsService`源代码中的`addCorsHeaders`和`TransportType`枚举。
+
+
+
+另外，如果允许跨域配置，考虑通过SockJS端点前缀来排除URLs，然后让Spring的`SockJsService`处理它。
+
+
+
+### 4.3.7. `SockJsCLient`
+
+Spring提供一个SockJS客户端用来连接远程的SockJS端点而无需使用浏览器。当需要在公共网络上的两个服务器之间进行双向通信时(也就是说，在网络代理可以排除使用WebSocket协议的情况下)，这一点特别有用。它对于测试也非常有用（例如，模拟大量并发用户）。
+
+
+
+该客户端支持`websocket`，`xhr-streaming`和`xhr-polling`传输。其余的仅在浏览器中有意义。
+
+
+
+可配置的`WebSocketTransport`：
+
+* 在JSR-356运行时的`StandardWebSocketClient`
+
+* 通过使用Jetty 9以上的本地WebSocket API的`JettyWebSocketClient`
+
+* 任意Spring的`WebSocketClient`实现
+
+
+
+`XhrTransport`定义同时支持`xhr-streaming`和`xhr-polling`，因此， 从客户机的角度来看，除了用于连接到服务器的URL之外，没有其他区别。目前有两种实现:
+
+* `RestTemplateXhrTransport`使用Spring的`RestTemplate`用于HTTP请求
+
+* `JettyXhrTransport`使用Jetty的`HttpClient`用于HTTP请求
+
+
+
+下面的例子展示了如何创建SockJS客户端并且连接到SockJS端点：
+
+```java
+List<Transport> transports = new ArrayList<>(2);
+transports.add(new WebSocketTransport(new StandardWebSocketClient()));
+transports.add(new RestTemplateXhrTransport());
+
+SockJsClient sockJsClient = new SockJsClient(transports);
+sockJsClient.doHandshake(new MyWebSocketHandler(), "ws://example.com:8080/sockjs");
+```
+
+> SockJS使用JSON格式化消息数组。默认情况下，使用Jackson 2并且需要它在classpath下。或者，可以配置一个自定义的`SockJsMessageCodec`实现并将它配置在`SockJsClient`上。
+
+
+
+为了使用`SockJsClient`模拟大量的并发用户，需要在底层HTTP客户端（对于XHR传输）上配置允许足够的连接数和线程数。下面的例子展示了如何通过Jetty使用：
+
+```java
+HttpClient jettyHttpClient = new HttpClient();
+jettyHttpClient.setMaxConnectionsPerDestination(1000);
+jettyHttpClient.setExecutor(new QueuedThreadPool(1000));
+```
+
+
+
+下面的例子展示了服务端SockJS相关的属性，用户也应该考虑自定义：
+
+```java
+@Configuration
+public class WebSocketConfig extends WebSocketMessageBrokerConfigurationSupport {
+
+    @Override
+    public void registerStompEndpoints(StompEndpointRegistry registry) {
+        registry.addEndpoint("/sockjs").withSockJS()
+            .setStreamBytesLimit(512 * 1024) 1
+            .setHttpMessageCacheSize(1000) 2
+            .setDisconnectDelay(30 * 1000); 3 
+    }
+
+    // ...
+}
+```
+
+<mark>1 </mark> 设置`streamBytesLimit`属性为512KB（默认为128KB-128*1024*）
+
+<mark>2 </mark> 设置`httpMessageCacheSize`属性为1000（默认为`100`）
+
+<mark>3 </mark> 设置`disconnectDelay`属性为30秒（默认为5秒-5*1000）

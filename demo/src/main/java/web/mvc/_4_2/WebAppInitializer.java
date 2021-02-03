@@ -6,12 +6,16 @@ import javax.servlet.ServletRegistration;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.web.WebApplicationInitializer;
+import org.springframework.boot.web.servlet.ServletContextInitializer;
 import org.springframework.web.context.ContextLoaderListener;
 import org.springframework.web.context.support.AnnotationConfigWebApplicationContext;
 import org.springframework.web.servlet.DispatcherServlet;
 
-public class WebAppInitializer implements WebApplicationInitializer {
+/**
+ * 实现ServletContextInitializer接口不会被 SpringServletContainerInitializer
+ * 检测到，如果实现了WebApplicationInitializer接口，classpath路径下如果有多个该接口实现，会重复加载并且导致启动失败
+ */
+public class WebAppInitializer implements ServletContextInitializer {
 
 	private static Logger log = LoggerFactory.getLogger(WebAppInitializer.class);
 
