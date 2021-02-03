@@ -619,3 +619,221 @@ public class WebSocketConfig extends WebSocketMessageBrokerConfigurationSupport 
 <mark>2 </mark> 设置`httpMessageCacheSize`属性为1000（默认为`100`）
 
 <mark>3 </mark> 设置`disconnectDelay`属性为30秒（默认为5秒-5*1000）
+
+
+
+## 4.4. STOMP
+
+WebSocket定义了两类消息（文本和二进制），但是，他们的内容未定义。协议为客户端和服务端定义了一个机制，用来协商要在WebSocket上使用的子协议（即高级消息协议），以定义每种协议可以发送的消息类型，消息格式，消息内容等等。子协议的使用是可选的，但是无论哪种方式，客户端和服务器都需要就定义消息内容的某种协议达成共识。
+
+
+
+### 4.4.1. 概述
+
+STOMP（简单文本面向消息协议）最初是为脚本语言（例如Ruby，Python和Perl）创建的，用来连接企业级的消息代理。它旨在解决常用消息传递模式的最小子集。STOMP可以在任何可靠的双向流网络协议上使用，例如TCP和WebSocket。尽管STOMP是面向文本的协议，但是消息有效负载可以是文本或二进制。
+
+
+
+STOMP是基于帧的协议，其帧以HTTP为模型。以下清单显示了STOMP帧的结构：
+
+```
+COMMAND
+header1:value1
+header2:value2
+
+Body^@
+```
+
+客户单可以使用`SEND`或`SUBSCRIBE`命令来发送或订阅消息，以及`destination`头，它用来描述应该由谁接受。这启用了一种简单的发布-订阅机制，可以使用该机制通过代理将消息发送到其他连接的客户端，或者将消息发送到服务器，以请求执行某些工作。
+
+
+
+当使用Spring的STOMP支持时，Spring WebSocket应用程序充当客户端的STOMP代理。消息被路由到@Controller消息处理方法或简单的内存中代理，该代理跟踪订阅并向订阅的用户广播消息。还可以将Spring配置为与专用STOMP代理（例如RabbitMQ，ActiveMQ等）一起使用，以实际广播消息。在那种情况下，Spring维护与代理的TCP连接，将消息中继给它，并将消息从它传递到连接的WebSocket客户端。因此，Spring Web应用程序可以依靠基于HTTP的统一安全性，通用验证以及用于消息处理的熟悉的编程模型。
+
+
+
+以下示例显示了一个订阅以接收股票报价的客户端，服务器可能会定期发出该股票报价（例如，通过计划任务，该任务通过`SimpMessagingTemplate`将消息发送给代理）:
+
+```
+SUBSCRIBE
+id:sub-1
+destination:/topic/price.stock.*
+
+^@
+```
+
+
+
+以下示例显示了一个发送交易请求的客户端，服务器可以通过@MessageMapping方法处理该请求：
+
+```
+SEND
+destination:/queue/trade
+content-type:application/json
+content-length:44
+
+{"action":"BUY","ticker":"MMM","shares",44}^@
+```
+
+
+
+执行后，服务器可以向客户广播交易确认消息和详细信息。
+
+
+
+在STOMP规范中，目的地的含义是故意不透明的。它可以是任何字符串，并且完全由STOMP服务器定义它们支持的目的地的语义和语法。但是，目的地通常是类似路径的字符串，其中/ topic / ..表示发布-订阅（一对多），而/ queue /表示点对点（一对一）消息交流。
+
+
+
+STOMP服务器可以使用`MESSAGE`命令向所有订户广播消息。以下示例显示了服务器向订阅的客户端发送股票报价的服务器：
+
+```
+MESSAGE
+message-id:nxahklf6-1
+subscription:sub-1
+destination:/topic/price.stock.MMM
+
+{"ticker":"MMM","price":129.45}^@
+```
+
+
+
+服务器无法发送未经请求的消息。来自服务器的所有消息都必须响应特定的客户端订阅，并且服务器消息的subscription-id头必须与客户端订阅的id头匹配。
+
+
+
+前面的概述旨在提供对STOMP协议的最基本的了解。建议全面阅读协议规范。
+
+
+
+### 4.4.2. 优点
+
+使用STOMP作为子协议，让Spring框架和Spring Security提供了一个比原始WebSockets更丰富的编程模型。关于HTTP与原始TCP以及它如何使Spring MVC和其他Web框架提供丰富功能的观点相同。下面列出了它的优点：
+
+* 无需发明自定义消息协议和消息格式。
+
+* 可以使用STOMP客户端，包括Spring框架中的Java客户端。
+
+* 可以（可选）使用消息代理（例如RabbitMQ，ActiveMQ和其他代理）来管理订阅和广播消息。
+
+* 可以在任意数量的@Controller实例中组织应用程序逻辑，并且可以基于STOMP目标头将消息路由到它们，而不是通过给定连接使用单个WebSocketHandler处理原始WebSocket消息。
+
+* 可以使用Spring Security基于STOMP目的地和消息类型来保护消息。
+
+
+
+### 4.4.3. 开启STOMP
+
+`spring-messaging`和`spring-websocket`模块提供了对WebSocket的支持。一旦有这些依赖，可以公开一个STOMP端点，在WebSocket上使用SockJS Fallback：
+
+```java
+import org.springframework.web.socket.config.annotation.EnableWebSocketMessageBroker;
+import org.springframework.web.socket.config.annotation.StompEndpointRegistry;
+
+@Configuration
+@EnableWebSocketMessageBroker
+public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
+
+    @Override
+    public void registerStompEndpoints(StompEndpointRegistry registry) {
+        registry.addEndpoint("/portfolio").withSockJS(); 1 
+    }
+
+    @Override
+    public void configureMessageBroker(MessageBrokerRegistry config) {
+        config.setApplicationDestinationPrefixes("/app"); 2
+        config.enableSimpleBroker("/topic", "/queue"); 3
+    }
+}
+```
+
+<mark>1 </mark>`protfolio`是HTTP URL，用于客户端需要WebSocket握手的端点。
+
+<mark>2 </mark>其目标标头以/ app开头的STOMP消息被路由到 @Controller类中的@MessageMapping方法。
+
+<mark>3 </mark> 使用内置的消息代理进行订阅和广播，以及 将目标标头以`/ topic`或`/ queue`开头的消息路由到代理。
+
+
+
+下面的XML配置可以达到相同的效果：
+
+```xml
+<beans xmlns="http://www.springframework.org/schema/beans"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns:websocket="http://www.springframework.org/schema/websocket"
+    xsi:schemaLocation="
+        http://www.springframework.org/schema/beans
+        https://www.springframework.org/schema/beans/spring-beans.xsd
+        http://www.springframework.org/schema/websocket
+        https://www.springframework.org/schema/websocket/spring-websocket.xsd">
+
+    <websocket:message-broker application-destination-prefix="/app">
+        <websocket:stomp-endpoint path="/portfolio">
+            <websocket:sockjs/>
+        </websocket:stomp-endpoint>
+        <websocket:simple-broker prefix="/topic, /queue"/>
+    </websocket:message-broker>
+
+</beans>
+```
+
+
+
+> 对于内置的简单代理，/topic和/queue前缀没有任何特殊含义。它们仅是区分发布订阅消息传递和点对点消息传递的约定（即，许多订户与一个消费者）。使用外部代理时，请检查代理的STOMP页面以了解其支持哪种STOMP目标和前缀。
+
+
+
+要从浏览器进行连接，使用`sockjs-client`。对于STOMP，多数应用程序使用`jmesnil/stomp-websocket`库（也就是stomp.js），它功能齐全，已在生产中使用了多年，但已不再维护。目前，`JSteunou/webstomp-client`是该库中最活跃且发展最快的后继程序。以下示例代码基于此：
+
+```js
+var socket = new SockJS("/spring-websocket-portfolio/portfolio");
+var stompClient = webstomp.over(socket);
+
+stompClient.connect({}, function(frame) {
+}
+```
+
+或者，可以通过WebSocket连接（不适用SockJS）：
+
+```js
+var socket = new WebSocket("/spring-websocket-portfolio/portfolio");
+var stompClient = Stomp.over(socket);
+
+stompClient.connect({}, function(frame) {
+}
+```
+
+注意，在前面例子中的`stompClient`不需要`login`和`passcode`头。 即使这样，它们也会在服务器端被忽略(更确切地说，是被覆盖)。
+
+### 4.4.4. WebSocket Server
+
+为配置底层的WebSocket服务器，使用`Server Configuration`中的信息。对于Jetty，需要通过`StompEndpointRegistry`设置`HandshakeHandler`和`WebSocketPolicy`：
+
+```java
+@Configuration
+@EnableWebSocketMessageBroker
+public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
+
+    @Override
+    public void registerStompEndpoints(StompEndpointRegistry registry) {
+        registry.addEndpoint("/portfolio").setHandshakeHandler(handshakeHandler());
+    }
+
+    @Bean
+    public DefaultHandshakeHandler handshakeHandler() {
+
+        WebSocketPolicy policy = new WebSocketPolicy(WebSocketBehavior.SERVER);
+        policy.setInputBufferSize(8192);
+        policy.setIdleTimeout(600000);
+
+        return new DefaultHandshakeHandler(
+                new JettyRequestUpgradeStrategy(new WebSocketServerFactory(policy)));
+    }
+}
+```
+
+
+
+### 4.4.5. 消息流（略）
+
+其余部分略...
